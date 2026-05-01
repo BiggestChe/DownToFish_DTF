@@ -56,5 +56,6 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "DownToFish_DTF.sln"
+    "dotnet.defaultSolution": "DownToFish_DTF.sln",
+    "dotnet.debug.suppressInvalidDebugTypeWarning": true
 }
