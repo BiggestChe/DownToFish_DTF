@@ -1,4 +1,5 @@
-﻿using UdonSharp;
+﻿// DebugMenu.cs
+using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -13,6 +14,11 @@ public class DebugMenu : UdonSharpBehaviour
     public Vector3 dummyCastDirection = new Vector3(0f, 0.4f, 1f);
     public float dummyCastSpeed = 6.0f;
 
+    // World position to place the bobber when simulating a landing.
+    // Set this to somewhere in front of the player in the Scene view.
+    [Header("Debug Bobber")]
+    public Vector3 debugBobberLandPosition = new Vector3(0f, 0f, 5f);
+
     [Header("UI Text Labels")]
     public TextMeshProUGUI stateText;
     public TextMeshProUGUI lineLengthText;
@@ -20,39 +26,128 @@ public class DebugMenu : UdonSharpBehaviour
     public TextMeshProUGUI castManagerText;
 
     [Header("Keyboard Shortcuts")]
-    public KeyCode castKey       = KeyCode.C;
-    public KeyCode bobberLandKey = KeyCode.B;
-    public KeyCode reelHoldKey   = KeyCode.R;
-    public KeyCode escapeKey     = KeyCode.E;
-    public KeyCode resetKey      = KeyCode.X;
+    public KeyCode castKey         = KeyCode.C;
+    public KeyCode bobberLandKey   = KeyCode.B;
+    public KeyCode reelHoldKey     = KeyCode.R;
+    public KeyCode escapeKey       = KeyCode.E;
+    public KeyCode resetKey        = KeyCode.X;
+    public KeyCode instantBiteKey  = KeyCode.I;
+    public KeyCode fullSequenceKey = KeyCode.Tab;
 
-    // Note: Button references removed — wire OnClick in the Inspector instead.
-    // Select each Button GameObject → OnClick (+) → drag FishingDebugMenu
-    // → pick the matching public method from the dropdown.
+    bool _autoRunning = false;
+    int  _autoStep    = 0;
+    float _autoTimer  = 0f;
+    const float STEP_DELAY = 0.6f;
+
+    float _reelOverrideTimer    = 0f;
+    float _reelOverrideDuration = 0f;
 
     void Update()
     {
         if (stateMachine == null) return;
 
         HandleKeyboard();
+        TickReelOverride();
+        TickAutoSequence();
         RefreshLabels();
     }
 
     void HandleKeyboard()
     {
-        if (Input.GetKeyDown(castKey))       SimulateCast();
-        if (Input.GetKeyDown(bobberLandKey)) SimulateBobberLand();
-        if (Input.GetKeyDown(escapeKey))     SimulateFishEscape();
-        if (Input.GetKeyDown(resetKey))      SimulateReset();
+        if (Input.GetKeyDown(castKey))         SimulateCast();
+        if (Input.GetKeyDown(bobberLandKey))   SimulateBobberLand();
+        if (Input.GetKeyDown(instantBiteKey))  SimulateInstantBite();
+        if (Input.GetKeyDown(escapeKey))       SimulateFishEscape();
+        if (Input.GetKeyDown(resetKey))        SimulateReset();
+        if (Input.GetKeyDown(fullSequenceKey)) StartAutoSequence();
 
         if (Input.GetKey(reelHoldKey))
-            SimulateReelInput(0.8f);
+            stateMachine.debugReelOverride = 0.8f;
+        else if (Input.GetKeyUp(reelHoldKey))
+            stateMachine.debugReelOverride = 0f;
     }
 
+    void TickReelOverride()
+    {
+        if (stateMachine.debugReelOverride <= 0f) return;
+        if (_reelOverrideDuration <= 0f) return;
+
+        _reelOverrideTimer += Time.deltaTime;
+        if (_reelOverrideTimer >= _reelOverrideDuration)
+        {
+            stateMachine.debugReelOverride = 0f;
+            _reelOverrideDuration = 0f;
+            _reelOverrideTimer    = 0f;
+            Debug.Log("[FishingDebug] Reel override ended");
+        }
+    }
+
+    void StartReelOverride(float duration)
+    {
+        if (stateMachine == null) return;
+        stateMachine.debugReelOverride = 0.8f;
+        _reelOverrideDuration = duration;
+        _reelOverrideTimer    = 0f;
+    }
+
+    // ── Auto sequence ─────────────────────────────────────
+    public void StartAutoSequence()
+    {
+        SimulateReset();
+        _autoStep    = 0;
+        _autoTimer   = 0f;
+        _autoRunning = true;
+        Debug.Log("[AutoSeq] Started");
+    }
+
+    void TickAutoSequence()
+    {
+        if (!_autoRunning) return;
+
+        _autoTimer += Time.deltaTime;
+
+        // Step 4 waits for the reel override to finish naturally
+        // rather than advancing after a fixed delay
+        if (_autoStep == 4)
+        {
+            if (stateMachine.debugReelOverride > 0f) return;
+            Debug.Log("[AutoSeq] Complete — state=" + stateMachine.currentState);
+            _autoRunning = false;
+            return;
+        }
+
+        if (_autoTimer < STEP_DELAY) return;
+        _autoTimer = 0f;
+
+        switch (_autoStep)
+        {
+            case 0:
+                Debug.Log("[AutoSeq] Step 1 — cast");
+                SimulateCast();
+                break;
+            case 1:
+                Debug.Log("[AutoSeq] Step 2 — bobber lands");
+                SimulateBobberLand();
+                break;
+            case 2:
+                Debug.Log("[AutoSeq] Step 3 — instant bite");
+                SimulateInstantBite();
+                break;
+            case 3:
+                Debug.Log("[AutoSeq] Step 4 — reeling for 8 seconds");
+                StartReelOverride(8.0f);
+                break;
+        }
+
+        _autoStep++;
+    }
+
+    // ── Label refresh ─────────────────────────────────────
     void RefreshLabels()
     {
         if (stateText != null)
-            stateText.text = "State:  " + stateMachine.currentState.ToString();
+            stateText.text = "State: " + stateMachine.currentState.ToString()
+                           + (_autoRunning ? "  [AUTO " + _autoStep + "]" : "");
 
         if (lineLengthText != null && stateMachine.reelManager != null)
         {
@@ -60,17 +155,17 @@ public class DebugMenu : UdonSharpBehaviour
             bool  atMin = stateMachine.reelManager.lineAtMinimum;
             bool  slack = stateMachine.reelManager.wentSlack;
 
-            string lineInfo = "Line: " + len.ToString("F2") + "m";
-            if (atMin) lineInfo += "  [AT MIN]";
-            if (slack) lineInfo += "  [SLACK]";
-            lineLengthText.text = lineInfo;
+            string info = "Line: " + len.ToString("F2") + "m";
+            if (atMin) info += "  [AT MIN]";
+            if (slack) info += "  [SLACK]";
+            lineLengthText.text = info;
         }
 
         if (fishingManagerText != null && stateMachine.fishingManager != null)
         {
             fishingManagerText.text =
-                "Biting: "  + stateMachine.fishingManager.fishIsBiting  +
-                "  Escaped: " + stateMachine.fishingManager.fishEscaped +
+                "Biting: "    + stateMachine.fishingManager.fishIsBiting +
+                "  Escaped: " + stateMachine.fishingManager.fishEscaped  +
                 "  Caught: "  + stateMachine.fishingManager.fishCaught;
         }
 
@@ -83,25 +178,29 @@ public class DebugMenu : UdonSharpBehaviour
         }
     }
 
-    // ── Simulation methods — assign these in each Button's OnClick ──
+    // ── Simulation methods ────────────────────────────────
 
     public void SimulateCast()
     {
         if (stateMachine == null || stateMachine.castManager == null) return;
 
-        Vector3 castVelocity = dummyCastDirection.normalized * dummyCastSpeed;
-        stateMachine.castManager.lastCastVelocity = castVelocity;
-        stateMachine.castManager.InjectVelocity(castVelocity);
-
-        Debug.Log("[FishingDebug] SimulateCast  mag=" + castVelocity.magnitude.ToString("F2"));
+        Vector3 vel = dummyCastDirection.normalized * dummyCastSpeed;
+        stateMachine.castManager.lastCastVelocity = vel;
+        stateMachine.castManager.InjectVelocity(vel);
+        Debug.Log("[FishingDebug] SimulateCast  mag=" + vel.magnitude.ToString("F2"));
     }
 
     public void SimulateBobberLand()
     {
         if (stateMachine == null || stateMachine.castManager == null) return;
 
+        // Place the bobber at a known world position before calling
+        // OnBobberLanded so waterLandingPosition is valid and
+        // UpdateBobberPosition has a real direction to reel along
+        stateMachine.castManager.bobber.transform.position = debugBobberLandPosition;
+
         stateMachine.castManager.OnBobberLanded();
-        Debug.Log("[FishingDebug] SimulateBobberLand");
+        Debug.Log("[FishingDebug] SimulateBobberLand at " + debugBobberLandPosition);
     }
 
     public void SimulateInstantBite()
@@ -109,19 +208,19 @@ public class DebugMenu : UdonSharpBehaviour
         if (stateMachine == null || stateMachine.fishingManager == null) return;
 
         stateMachine.fishingManager.fishIsBiting = true;
-        Debug.Log("[FishingDebug] SimulateInstantBite");
+        stateMachine.ForceTransitionToReeling();
+        Debug.Log("[FishingDebug] SimulateInstantBite — forced to Reeling");
     }
 
     public void SimulateOneReel()
     {
-        SimulateReelInput(0.8f);
+        StartReelOverride(1.0f);
     }
 
     public void SimulateReelInput(float joystickY)
     {
-        if (stateMachine == null || stateMachine.reelManager == null) return;
-
-        stateMachine.reelManager.TickReel(joystickY, 0f);
+        if (stateMachine == null) return;
+        stateMachine.debugReelOverride = joystickY;
     }
 
     public void SimulateFishEscape()
@@ -136,7 +235,11 @@ public class DebugMenu : UdonSharpBehaviour
     {
         if (stateMachine == null) return;
 
+        stateMachine.debugReelOverride = 0f;
+        _reelOverrideDuration          = 0f;
+        _reelOverrideTimer             = 0f;
+        _autoRunning                   = false;
         stateMachine.OnRodDropped();
-        Debug.Log("[FishingDebug] SimulateReset → Idle");
+        Debug.Log("[FishingDebug] Reset → Idle");
     }
 }
