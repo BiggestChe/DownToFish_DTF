@@ -20,6 +20,14 @@ public class FishingManager : UdonSharpBehaviour
     public float struggleLinePull = 0.4f;    // meters of line yanked out per struggle
     public int maxStruggles = 4;             // fish escapes after this many successful yanks
 
+    [Header("Gacha / Loot Table")]
+    public GameObject[] fishPrefabs; // Assign your fish models here
+    public float[] fishWeights;      // e.g., 80 for Common, 15 for Rare, 5 for Legendary
+    public float luckMultiplier = 1.0f;
+
+    [Header("Catch Positioning")]
+    public Transform rodTipAnchor;
+    private GameObject _spawnedFish;
     // ── Flags polled by FishingStateMachine ──────────────
     [HideInInspector] public bool fishIsBiting = false;
     [HideInInspector] public bool fishEscaped = false;
@@ -80,6 +88,44 @@ public class FishingManager : UdonSharpBehaviour
         _fightActive = false;
     }
 
+    void SpawnGachaFish()
+{
+    int fishIndex = GetWeightedRandomIndex();
+    GameObject prefab = fishPrefabs[fishIndex];
+
+    // Instantiate the fish via VRChat's networking if you want others to see it
+    // If it's a local-only visual until it hits the bucket, use Object.Instantiate
+    _spawnedFish = Instantiate(prefab);
+    
+    // Parent to rod tip so it 'sticks' to the hook
+    _spawnedFish.transform.SetParent(rodTipAnchor, false);
+    _spawnedFish.transform.localPosition = Vector3.zero;
+
+    // Ensure the fish Rigidbody doesn't fall off yet
+    Rigidbody rb = _spawnedFish.GetComponent<Rigidbody>();
+    if (rb != null) rb.isKinematic = true;
+}
+
+    int GetWeightedRandomIndex()
+{
+    float totalWeight = 0;
+    // Calculate total weight (Luck could specifically boost rare indices here)
+    for (int i = 0; i < fishWeights.Length; i++)
+    {
+        totalWeight += fishWeights[i]; 
+    }
+
+    float roll = Random.Range(0f, totalWeight);
+    float cursor = 0;
+
+    for (int i = 0; i < fishWeights.Length; i++)
+    {
+        cursor += fishWeights[i];
+        if (roll <= cursor) return i;
+    }
+    return 0; // Fallback to first fish
+}
+
     // Called by OnEnterState(Reeling) — arms the struggle ticker.
     public void BeginFight()
     {
@@ -104,6 +150,7 @@ public class FishingManager : UdonSharpBehaviour
     public void ResolveCatch()
     {
         fishCaught = true;
+        SpawnGachaFish();   
         EndFight();
     }
 }
