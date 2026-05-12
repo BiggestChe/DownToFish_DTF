@@ -11,22 +11,36 @@ public class FishingStateMachine : UdonSharpBehaviour
     [HideInInspector] public State currentState = State.Idle;
 
     [Header("Managers")]
-    public CastManager castManager;
-    public FishingManager fishingManager;
-    public ReelingManager reelManager;
+    public CastManager         castManager;
+    public FishingManager      fishingManager;
+    public ReelingManager      reelManager;
     public FishingLineRenderer lineRenderer;
+    [HideInInspector] public WaterZone currentZone = null;
+
 
     [Header("Settings")]
     public float caughtDisplayTime = 2.0f;
+
+    // How long the bobber can be in the air before it is considered
+    // to have missed the water and gets automatically recalled
+    public float castTimeout = 4.0f;
+
     float _caughtTimer = 0f;
+    float _castTimer   = 0f;
 
     [HideInInspector] public float debugReelOverride = 0f;
+
+    bool _isVRPlayer = false;
 
     const string REEL_AXIS = "Oculus_CrossPlatform_SecondaryThumbstickVertical";
 
     void Start()
     {
         ValidateReferences();
+
+        VRCPlayerApi player = Networking.LocalPlayer;
+        if (player != null)
+            _isVRPlayer = player.IsUserInVR();
     }
 
     void ValidateReferences()
@@ -41,6 +55,7 @@ public class FishingStateMachine : UdonSharpBehaviour
     {
         switch (currentState)
         {
+            
             case State.Idle:    UpdateIdle();    break;
             case State.Cast:    UpdateCast();    break;
             case State.Fishing: UpdateFishing(); break;
@@ -51,23 +66,45 @@ public class FishingStateMachine : UdonSharpBehaviour
 
     void UpdateIdle()
     {
-        if (castManager == null) return;
-
-        castManager.Tick();
-
-        if (castManager.ShouldCast())
-            TransitionTo(State.Cast);
+        if (castManager  != null) castManager.UpdateIdleBobberPosition();
+        if (lineRenderer != null) lineRenderer.UpdateIdleLine();
     }
 
     void UpdateCast()
     {
         if (castManager == null || reelManager == null) return;
 
-        if (lineRenderer != null)
-            lineRenderer.UpdateLine(reelManager.lineLength, false);
+        // Track actual physical distance during cast arc so line
+        // length always matches where the bobber actually is
+        float actualDist = Vector3.Distance(
+            castManager.rodTip.position,
+            castManager.bobber.transform.position);
 
+        reelManager.lineLength = Mathf.Clamp(
+            actualDist,
+            reelManager.minLineLength,
+            reelManager.maxLineLength);
+
+        if (lineRenderer != null)
+            lineRenderer.UpdateLine(reelManager.lineLength, true);
+
+        // Bobber hit water — move to Fishing
         if (castManager.bobberInWater)
+        {
+            _castTimer = 0f;
             TransitionTo(State.Fishing);
+            return;
+        }
+
+        // Cast timeout — bobber missed the water or landed on terrain.
+        // Recall automatically so the player isn't stuck in Cast state.
+        _castTimer += Time.deltaTime;
+        if (_castTimer >= castTimeout)
+        {
+            Debug.Log("[FSM] Cast timed out — recalling bobber");
+            _castTimer = 0f;
+            TransitionTo(State.Idle);
+        }
     }
 
     void UpdateFishing()
@@ -76,12 +113,14 @@ public class FishingStateMachine : UdonSharpBehaviour
 
         fishingManager.TickFishing();
 
+        if (castManager != null) castManager.TickBob();
+
         if (lineRenderer != null)
             lineRenderer.UpdateLine(reelManager.lineLength, false);
 
         if (fishingManager.fishIsBiting)
         {
-            if (Input.GetAxis(REEL_AXIS) > 0.05f)
+            if (debugReelOverride > 0f || Input.GetAxis(REEL_AXIS) > 0.05f)
                 TransitionTo(State.Reeling);
         }
         else
@@ -95,11 +134,11 @@ public class FishingStateMachine : UdonSharpBehaviour
     {
         if (reelManager == null || fishingManager == null) return;
 
-        float joystickY = debugReelOverride > 0f
+        float reelInput = debugReelOverride > 0f
                         ? debugReelOverride
                         : Input.GetAxis(REEL_AXIS);
 
-        reelManager.TickReel(joystickY, fishingManager.strugglePullRequest);
+        reelManager.TickReel(reelInput, fishingManager.strugglePullRequest);
         fishingManager.strugglePullRequest = 0f;
         fishingManager.TickFight();
 
@@ -117,10 +156,9 @@ public class FishingStateMachine : UdonSharpBehaviour
         }
         else if (reelManager.wentSlack || fishingManager.fishEscaped)
         {
-            Debug.Log("[FSM] Escape — wentSlack=" + reelManager.wentSlack
-                    + "  fishEscaped=" + fishingManager.fishEscaped
-                    + "  lineLength=" + reelManager.lineLength.ToString("F2")
-                    + "  override=" + debugReelOverride.ToString("F2"));
+            Debug.Log("[FSM] Escape — wentSlack="  + reelManager.wentSlack
+                    + "  fishEscaped="             + fishingManager.fishEscaped
+                    + "  lineLength="              + reelManager.lineLength.ToString("F2"));
             debugReelOverride = 0f;
             TransitionTo(State.Idle);
         }
@@ -135,39 +173,40 @@ public class FishingStateMachine : UdonSharpBehaviour
 
     void TransitionTo(State next)
     {
-        Debug.Log("[FSM] " + currentState + " -> " + next + "  t=" + Time.time.ToString("F2"));
+        Debug.Log("[FSM] " + currentState + " -> " + next
+                + "  t=" + Time.time.ToString("F2"));
         OnExitState(currentState);
         currentState = next;
         OnEnterState(currentState);
     }
 
-    void OnExitState(State state) { }
+    void OnExitState(State state)
+    {
+        // Reset cast timer when leaving Cast state
+        if (state == State.Cast)
+            _castTimer = 0f;
+    }
 
+    //main statemachine functionality
     void OnEnterState(State state)
     {
         switch (state)
         {
             case State.Idle:
+            currentZone = null;   
                 if (castManager    != null) castManager.Reset();
                 if (fishingManager != null) fishingManager.EndFight();
+                fishingManager.HideCaughtFish();
                 if (reelManager    != null) reelManager.EndFight();
-                if (lineRenderer   != null) lineRenderer.HideLine();
+                if (lineRenderer   != null) lineRenderer.ShowIdleLine();
                 break;
 
             case State.Cast:
-                if (reelManager != null && castManager != null)
-                {
-                    float castLength = reelManager.EstimateCastLength(
-                        castManager.lastCastVelocity.magnitude);
-                    reelManager.ResetLine(castLength);
-                }
-                if (castManager  != null) castManager.LaunchBobber();
+                _castTimer = 0f;
                 if (lineRenderer != null) lineRenderer.ShowLine();
                 break;
 
             case State.Fishing:
-                // Snap bobber to water surface before beginning the bite wait —
-                // prevents it floating at whatever position physics left it
                 if (castManager    != null) castManager.SnapBobberToWater();
                 if (fishingManager != null) fishingManager.BeginWaiting();
                 break;
@@ -185,20 +224,85 @@ public class FishingStateMachine : UdonSharpBehaviour
         }
     }
 
+    // ── Single use input handler ──────────────────────────────────
+    // Called by FishingRod.OnPickupUseDown for both PC and VR.
+    // Behaviour changes depending on current state:
+    //
+    // Idle    → cast the bobber out
+    // Cast    → recall bobber immediately (missed the water)
+    // Fishing → recall bobber (player changed their mind)
+    // Reeling → no action, reel input handles this state
+    // Caught  → no action, auto-resets after caughtDisplayTime
+    public void OnUseInput(bool isVR)
+    {
+        switch (currentState)
+        {
+            case State.Idle:
+                OnCastInput(isVR);
+                break;
+
+            case State.Cast:
+                // Bobber is in the air — recall it immediately
+                Debug.Log("[FSM] Use pressed during Cast — recalling bobber");
+                _castTimer = 0f;
+                TransitionTo(State.Idle);
+                break;
+
+            case State.Fishing:
+                // Bobber is in water but player wants to recast —
+                // recall and return to Idle
+                Debug.Log("[FSM] Use pressed during Fishing — recalling bobber");
+                TransitionTo(State.Idle);
+                break;
+
+            case State.Reeling:
+            case State.Caught:
+                // No action — these states handle themselves
+                break;
+        }
+    }
+
+    public void OnCastInput(bool isVR)
+    {
+        if (currentState != State.Idle) return;
+        if (castManager  == null)       return;
+
+        if (isVR)
+            castManager.CastVR();
+        else
+            castManager.CastPC();
+
+        if (reelManager != null)
+        {
+            float castLength = reelManager.EstimateCastLength(
+                castManager.lastCastVelocity.magnitude);
+            reelManager.ResetLine(castLength);
+        }
+
+        Debug.Log("[FSM] Cast fired — vel="  + castManager.lastCastVelocity
+                + "  mag=" + castManager.lastCastVelocity.magnitude.ToString("F2"));
+
+        TransitionTo(State.Cast);
+    }
+
+    // ── Debug menu helpers ────────────────────────────────────────
+
     public void ForceTransitionToReeling()
     {
         Debug.Log("[FSM] ForceTransitionToReeling — currentState=" + currentState);
         if (currentState != State.Fishing)
         {
-            Debug.LogWarning("[FSM] ForceTransitionToReeling ignored — not in Fishing state");
+            Debug.LogWarning("[FSM] Ignored — not in Fishing state");
             return;
         }
         TransitionTo(State.Reeling);
     }
 
+    // ── VRC Pickup callbacks ──────────────────────────────────────
+
     public void OnRodPickedUp()
     {
-        if (currentState == State.Idle) return;
+        if (castManager != null) castManager.OnRodPickedUp();
         TransitionTo(State.Idle);
     }
 
@@ -208,11 +312,16 @@ public class FishingStateMachine : UdonSharpBehaviour
         TransitionTo(State.Idle);
     }
 
-    public void OnTriggerPressed()
-    {
-        if (currentState == State.Idle && castManager != null && castManager.ShouldCast())
-            TransitionTo(State.Cast);
-    }
+    public void OnEnteredZone(WaterZone zone)
+{
+    currentZone = zone;
+    Debug.Log("[FSM] Entered zone: " + zone.zoneName);
+}
+    public void OnBobberLeftZone()
+{
+    Debug.Log("[FSM] Bobber left water zone — recalling");
+    TransitionTo(State.Idle);
+}
 
     public void OnBobberLanded()
     {

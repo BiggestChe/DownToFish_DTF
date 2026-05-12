@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c333ccfdd0cbdbc4ca30cef2dd6e6b9b, type: 3}
-  m_Name: GachaSystem
+  m_Name: GameManager
   m_EditorClassIdentifier: 
-  serializedUdonProgramAsset: {fileID: 11400000, guid: f4b8e06afe68f2d47baab2d215d314b7,
+  serializedUdonProgramAsset: {fileID: 11400000, guid: c0c82475407da414f9ff7bdac7e38261,
     type: 2}
   udonAssembly: 
   assemblyError: 
-  sourceCsScript: {fileID: 11500000, guid: cce334209253f7f4292d5c4db27586fd, type: 3}
+  sourceCsScript: {fileID: 11500000, guid: 3cf3d93d956a319409d2a231f871d46c, type: 3}
   scriptVersion: 2
   compiledVersion: 2
   behaviourSyncMode: 0
   hasInteractEvent: 0
-  scriptID: -4380263841312534870
+  scriptID: -5014025826788158411
   serializationData:
     SerializedFormat: 2
     SerializedBytes: 
