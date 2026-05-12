@@ -102,35 +102,47 @@ public class CastManager : UdonSharpBehaviour
         bobber.velocity = Vector3.zero;
     }
 
-    public void UpdateBobberPosition(float lineLength)
+// In CastManager.cs — replace UpdateBobberPosition
+public void UpdateBobberPosition(float lineLength)
+{
+    if (bobber == null || rodTip == null) return;
+
+    // If landing position was never set the rod was never cast —
+    // snap bobber to tip and do nothing rather than launching it
+    // toward world origin
+    if (waterLandingPosition == Vector3.zero)
     {
-        if (bobber == null || rodTip == null) return;
-
-        Vector3 direction = (waterLandingPosition - rodTip.position).normalized;
-
-        if (direction == Vector3.zero)
-            direction = rodTip.forward;
-
-        bobber.transform.position = rodTip.position + direction * lineLength;
-    }
-
-    public void Reset()
-    {
-        InitializeIfNeeded();
-
-        bobberInWater = false;
-        bobber.isKinematic = true;
-        bobber.velocity = Vector3.zero;
         bobber.transform.position = rodTip.position;
-        waterLandingPosition = Vector3.zero;
-
-        for (int i = 0; i < velocitySampleFrames; i++)
-            _velocitySamples[i] = Vector3.zero;
-
-        _sampleIndex = 0;
-        _frameCount  = 0;   // restart warmup so stale velocity from previous
-                            // cast doesn't ghost into the next detection window
+        return;
     }
+
+    Vector3 direction = (waterLandingPosition - rodTip.position).normalized;
+
+    if (direction == Vector3.zero)
+        direction = rodTip.forward;
+
+    bobber.transform.position = rodTip.position + direction * lineLength;
+}
+   public void Reset()
+{
+    InitializeIfNeeded();
+
+    bobberInWater        = false;
+    bobber.isKinematic   = true;
+    bobber.velocity      = Vector3.zero;
+    waterLandingPosition = Vector3.zero;
+
+    // Snap bobber to rod tip so it has no stale world position
+    // that could produce a huge direction vector on next cast
+    if (rodTip != null)
+        bobber.transform.position = rodTip.position;
+
+    for (int i = 0; i < velocitySampleFrames; i++)
+        _velocitySamples[i] = Vector3.zero;
+
+    _sampleIndex = 0;
+    _frameCount  = 0;
+}
 
     public void InjectVelocity(Vector3 velocity)
     {
