@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.33220643, g: 0.36271715, b: 0.46474195, a: 1}
+  m_IndirectSpecularColor: {r: 0.33220643, g: 0.36271724, b: 0.4647423, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -174,9 +174,6 @@ MonoBehaviour:
   segmentCount: 8
   maxSag: 0.5
   minSag: 0.02
-  idleLineLength: 0.4
-  idleBounceSpeed: 2
-  idleBounceAmount: 0.03
   updateThreshold: 0.004
 --- !u!4 &13805711
 Transform:
@@ -785,9 +782,7 @@ MonoBehaviour:
   fishingManager: {fileID: 282739811}
   reelManager: {fileID: 282739807}
   lineRenderer: {fileID: 0}
-  currentZone: {fileID: 0}
   caughtDisplayTime: 2
-  castTimeout: 4
   debugReelOverride: 0
 --- !u!114 &282739806
 MonoBehaviour:
@@ -895,13 +890,9 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 282739808}
   bobber: {fileID: 0}
   rodTip: {fileID: 0}
-  bobberRenderer: {fileID: 0}
-  pcCastPower: 8
-  vrCastMultiplier: 1.4
-  minVRCastSpeed: 1.5
-  bobSpeed: 1.5
-  bobAmount: 0.04
-  idleHangLength: 0.4
+  castThreshold: 3
+  castForceMultiplier: 1.4
+  velocitySampleFrames: 5
   bobberInWater: 0
   lastCastVelocity: {x: 0, y: 0, z: 0}
   waterLandingPosition: {x: 0, y: 0, z: 0}
@@ -958,15 +949,20 @@ MonoBehaviour:
   struggleInterval: 1.8
   struggleLinePull: 0.4
   maxStruggles: 4
-  debugDisableEscape: 1
-  fishPool: {fileID: 0}
-  rodTipAnchor: {fileID: 0}
+  fishPrefabs:
+  - {fileID: 1956225040}
+  - {fileID: 77667146}
+  - {fileID: 656272867}
+  fishWeights:
+  - 30
+  - 20
+  - 50
   luckMultiplier: 1
+  rodTipAnchor: {fileID: 0}
   fishIsBiting: 0
   fishEscaped: 0
   fishCaught: 0
   strugglePullRequest: 0
-  currentFishTier: 0
 --- !u!4 &282739812
 Transform:
   m_ObjectHideFlags: 0
@@ -1128,9 +1124,6 @@ MonoBehaviour:
   segmentCount: 8
   maxSag: 0.5
   minSag: 0.02
-  idleLineLength: 0.4
-  idleBounceSpeed: 2
-  idleBounceAmount: 0.03
   updateThreshold: 0.004
 --- !u!120 &357691567
 LineRenderer:
@@ -2360,13 +2353,9 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 866183357}
   bobber: {fileID: 1698003971}
   rodTip: {fileID: 1561232082}
-  bobberRenderer: {fileID: 0}
-  pcCastPower: 8
-  vrCastMultiplier: 1.4
-  minVRCastSpeed: 1.5
-  bobSpeed: 1.5
-  bobAmount: 0.04
-  idleHangLength: 0.4
+  castThreshold: 3
+  castForceMultiplier: 1.4
+  velocitySampleFrames: 5
   bobberInWater: 0
   lastCastVelocity: {x: 0, y: 0, z: 0}
   waterLandingPosition: {x: 0, y: 0, z: 0}
@@ -2423,15 +2412,20 @@ MonoBehaviour:
   struggleInterval: 1.8
   struggleLinePull: 0.4
   maxStruggles: 4
-  debugDisableEscape: 1
-  fishPool: {fileID: 0}
-  rodTipAnchor: {fileID: 1561232082}
+  fishPrefabs:
+  - {fileID: 1956225040}
+  - {fileID: 77667146}
+  - {fileID: 656272867}
+  fishWeights:
+  - 30
+  - 20
+  - 50
   luckMultiplier: 1
+  rodTipAnchor: {fileID: 1561232082}
   fishIsBiting: 0
   fishEscaped: 0
   fishCaught: 0
   strugglePullRequest: 0
-  currentFishTier: 0
 --- !u!114 &866183361
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2459,9 +2453,7 @@ MonoBehaviour:
   fishingManager: {fileID: 866183360}
   reelManager: {fileID: 866183353}
   lineRenderer: {fileID: 357691566}
-  currentZone: {fileID: 0}
   caughtDisplayTime: 2
-  castTimeout: 4
   debugReelOverride: 0
 --- !u!114 &866183362
 MonoBehaviour:
@@ -2938,74 +2930,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1001 &1126761006
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.9
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 0.65456194
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalRotation.x
-      value: -0.18788965
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0.7116012
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0.17282915
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: -29.468
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: -95.494
-      objectReference: {fileID: 0}
-    - target: {fileID: -8679921383154817045, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 2.709
-      objectReference: {fileID: 0}
-    - target: {fileID: 919132149155446097, guid: a7edf3c964f2d684dab75f64a8ca0bb3,
-        type: 3}
-      propertyPath: m_Name
-      value: FishGod
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: a7edf3c964f2d684dab75f64a8ca0bb3, type: 3}
 --- !u!1 &1202007768 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 2fc81dd48e4293442845f4b872c1b2f0,
@@ -3121,9 +3045,7 @@ MonoBehaviour:
   fishingManager: {fileID: 1202007774}
   reelManager: {fileID: 1202007770}
   lineRenderer: {fileID: 13805710}
-  currentZone: {fileID: 0}
   caughtDisplayTime: 2
-  castTimeout: 4
   debugReelOverride: 0
 --- !u!114 &1202007773
 MonoBehaviour:
@@ -3178,15 +3100,16 @@ MonoBehaviour:
   struggleInterval: 1.8
   struggleLinePull: 0.4
   maxStruggles: 4
-  debugDisableEscape: 1
-  fishPool: {fileID: 0}
-  rodTipAnchor: {fileID: 2033264348}
+  fishPrefabs:
+  - {fileID: 656272867}
+  fishWeights:
+  - 100
   luckMultiplier: 1
+  rodTipAnchor: {fileID: 2033264348}
   fishIsBiting: 0
   fishEscaped: 0
   fishCaught: 0
   strugglePullRequest: 0
-  currentFishTier: 0
 --- !u!114 &1202007775
 MonoBehaviour:
   m_ObjectHideFlags: 2
@@ -3237,13 +3160,9 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1202007775}
   bobber: {fileID: 169419472}
   rodTip: {fileID: 2033264348}
-  bobberRenderer: {fileID: 0}
-  pcCastPower: 8
-  vrCastMultiplier: 1.4
-  minVRCastSpeed: 1.5
-  bobSpeed: 1.5
-  bobAmount: 0.04
-  idleHangLength: 0.4
+  castThreshold: 3
+  castForceMultiplier: 1.4
+  velocitySampleFrames: 5
   bobberInWater: 0
   lastCastVelocity: {x: 0, y: 0, z: 0}
   waterLandingPosition: {x: 0, y: 0, z: 0}
@@ -4760,4 +4679,3 @@ SceneRoots:
   - {fileID: 2000449814}
   - {fileID: 1642452348}
   - {fileID: 282739812}
-  - {fileID: 1126761006}
