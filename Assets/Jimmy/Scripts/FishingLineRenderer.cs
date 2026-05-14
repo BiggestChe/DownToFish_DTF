@@ -28,7 +28,7 @@ public class FishingLineRenderer : UdonSharpBehaviour
     Vector3 _prevTipPos;
     Vector3 _prevBobberPos;
     bool  _initialized = false;
-    bool  _idleMode    = false;
+    bool  _idleMode = false;
     float _idleTimer   = 0f;
 
     float _maxLineLength = 20f;

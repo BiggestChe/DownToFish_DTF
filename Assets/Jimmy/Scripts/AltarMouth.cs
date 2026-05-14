@@ -9,6 +9,7 @@ public class AltarMouth : UdonSharpBehaviour
 
     public void OnTriggerEnter(Collider other)
     {
+        Debug.Log(other.name);
         FishPrefab fish = other.GetComponent<FishPrefab>();
         if (fish != null)
         {

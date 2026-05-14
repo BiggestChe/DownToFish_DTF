@@ -146,9 +146,5 @@ public class FishingManager : UdonSharpBehaviour
 
     // Called by OnEnterState(Idle) — returns active fish to pool
     // so it's available for the next catch
-    public void HideCaughtFish()
-    {
-        if (fishPool != null)
-            fishPool.ReturnFish();
-    }
+ 
 }
