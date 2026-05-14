@@ -11,22 +11,19 @@ public class FishingRod : UdonSharpBehaviour
     public Transform           rodTip;
     public FishingStateMachine stateMachine;
     public GameObject          bobberObject;
+    // ReelHandle manages its own debugReelOverride via its own script —
+    // no reference needed here, it writes directly to the state machine
 
-    [Header("Reel Settings")]
-    public float reelDeadzone = 0.2f;
+    [Header("Settings")]
+    public float holdThreshold = 0.25f;     // seconds for tap vs hold on trigger
 
     VRC_Pickup   _pickup;
     VRCPlayerApi _localPlayer;
-    bool         _isHeld   = false;
-    bool         _isVR     = false;
-
-    // Stores the current off-hand thumbstick value each frame
-    // Written by InputLookVertical or InputMoveVertical
-    float _offHandVertical = 0f;
-
-    // Which hand is holding the rod — determines which
-    // thumbstick is the off hand
-    VRC_Pickup.PickupHand _heldHand = VRC_Pickup.PickupHand.None;
+    bool         _isHeld          = false;
+    bool         _isVR            = false;
+    bool         _triggerDown     = false;
+    float        _triggerHeldTime = 0f;
+    bool         _isReeling       = false;
 
     void Start()
     {
@@ -41,62 +38,49 @@ public class FishingRod : UdonSharpBehaviour
     {
         if (!_isHeld || stateMachine == null) return;
 
+        // Track tip position every frame so CastVR() has a valid
+        // velocity delta at the moment of trigger press
         if (stateMachine.castManager != null)
             stateMachine.castManager.TrackTipPosition();
 
-        if (_isVR)
-            HandleVRReel();
-    }
-
-    void HandleVRReel()
-    {
-        // Forward push on off-hand thumbstick reels in
-        if (_offHandVertical > reelDeadzone)
+        // Trigger hold fallback for VR — if player can't find the
+        // reel handle they can still hold trigger to reel slowly
+        if (_isVR && _triggerDown)
         {
-            float reelInput = Mathf.InverseLerp(reelDeadzone, 1f, _offHandVertical);
-            stateMachine.debugReelOverride = reelInput;
+            _triggerHeldTime += Time.deltaTime;
+            if (_triggerHeldTime >= holdThreshold)
+            {
+                _isReeling = true;
+                // Only override if reel handle isn't already providing input
+                if (stateMachine.debugReelOverride < 0.05f)
+                    stateMachine.debugReelOverride = 0.6f;
+            }
         }
-        else
+
+        // Desktop — hold E to reel
+    if (!_isVR)
+    {
+        if (Input.GetKey(KeyCode.R) &&
+           (stateMachine.currentState == State.Reeling ||
+            stateMachine.currentState == State.Fishing))
         {
-            stateMachine.debugReelOverride = 0f;
+            stateMachine.debugReelOverride = 1f;
+        }
+        else if (!Input.GetKey(KeyCode.R))
+        {
+            // Only clear if trigger isn't also holding
+            if (!_triggerDown)
+                stateMachine.debugReelOverride = 0f;
         }
     }
-
-    // ── VRChat Input Events ───────────────────────────────────────
-    // These fire reliably on Quest and PC regardless of controller
-    // remapping — much more reliable than Input.GetAxis axis names.
-    //
-    // InputMoveVertical  = left thumbstick Y  (movement stick)
-    // InputLookVertical  = right thumbstick Y (look stick)
-    //
-    // When rod is in RIGHT hand → off hand is LEFT → read MoveVertical
-    // When rod is in LEFT hand  → off hand is RIGHT → read LookVertical
-
-    public override void InputMoveVertical(float value, UdonInputEventArgs args)
-    {
-        if (!_isHeld) return;
-
-        // Left thumbstick — only use this when rod is in right hand
-        if (_heldHand == VRC_Pickup.PickupHand.Right)
-            _offHandVertical = value;
     }
-
-    public override void InputLookVertical(float value, UdonInputEventArgs args)
-    {
-        if (!_isHeld) return;
-
-        // Right thumbstick — only use this when rod is in left hand
-        if (_heldHand == VRC_Pickup.PickupHand.Left)
-            _offHandVertical = value;
-    }
-
-    // ── VRC Pickup callbacks ──────────────────────────────────────
 
     public override void OnPickup()
     {
-        _isHeld           = true;
-        _heldHand         = _pickup.currentHand;
-        _offHandVertical  = 0f;
+        _isHeld          = true;
+        _triggerDown     = false;
+        _isReeling       = false;
+        _triggerHeldTime = 0f;
 
         Networking.SetOwner(Networking.LocalPlayer, gameObject);
 
@@ -105,19 +89,20 @@ public class FishingRod : UdonSharpBehaviour
 
         if (stateMachine != null)
         {
-            stateMachine.castManager.OnRodPickedUp();
+            if (stateMachine.castManager != null)
+                stateMachine.castManager.OnRodPickedUp();
             stateMachine.OnRodPickedUp();
         }
 
-        Debug.Log("[FishingRod] Picked up — isVR=" + _isVR
-                + "  hand=" + _heldHand);
+        Debug.Log("[FishingRod] Picked up — isVR=" + _isVR);
     }
 
     public override void OnDrop()
     {
         _isHeld          = false;
-        _heldHand        = VRC_Pickup.PickupHand.None;
-        _offHandVertical = 0f;
+        _triggerDown     = false;
+        _isReeling       = false;
+        _triggerHeldTime = 0f;
 
         if (stateMachine != null)
         {
@@ -128,14 +113,41 @@ public class FishingRod : UdonSharpBehaviour
         Debug.Log("[FishingRod] Dropped");
     }
 
-    // Trigger tap = cast or recall
     public override void OnPickupUseDown()
     {
         if (stateMachine == null) return;
 
-        Debug.Log("[FishingRod] Trigger — state=" + stateMachine.currentState);
-        stateMachine.OnUseInput(_isVR);
+        _triggerDown     = true;
+        _triggerHeldTime = 0f;
+        _isReeling       = false;
+
+        Debug.Log("[FishingRod] Trigger down — state=" + stateMachine.currentState);
     }
 
-    public override void OnPickupUseUp() { }
+    public override void OnPickupUseUp()
+    {
+        if (stateMachine == null) return;
+
+        bool wasReeling = _isReeling;
+
+        _triggerDown     = false;
+        _isReeling       = false;
+        _triggerHeldTime = 0f;
+
+        // Clear trigger hold override — reel handle may still be active
+        if (stateMachine.debugReelOverride <= 0.65f)
+            stateMachine.debugReelOverride = 0f;
+
+        // Short tap = cast or recall
+        // Long hold = was reeling via trigger, release just stops it
+        if (!wasReeling)
+        {
+            Debug.Log("[FishingRod] Trigger tap — use input");
+            stateMachine.OnUseInput(_isVR);
+        }
+        else
+        {
+            Debug.Log("[FishingRod] Trigger released — stopped reeling");
+        }
+    }
 }
