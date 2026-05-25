@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.33220643, g: 0.36271724, b: 0.4647423, a: 1}
+  m_IndirectSpecularColor: {r: 0.33220643, g: 0.36271715, b: 0.46474195, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -2488,17 +2488,17 @@ PrefabInstance:
     - target: {fileID: -8679921383154817045, guid: b7a6c09315dd43e40a3996a58b313c9e,
         type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.5
+      value: 0.18475
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: b7a6c09315dd43e40a3996a58b313c9e,
         type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.5
+      value: 0.18475
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: b7a6c09315dd43e40a3996a58b313c9e,
         type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.5
+      value: 0.18475
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: b7a6c09315dd43e40a3996a58b313c9e,
         type: 3}
@@ -3953,7 +3953,7 @@ Transform:
   m_GameObject: {fileID: 1177487675}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.877, y: 0.059, z: -0.226}
+  m_LocalPosition: {x: -1.27, y: 0.059, z: -0.226}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3977,9 +3977,9 @@ MonoBehaviour:
   ExactGrip: {fileID: 0}
   allowManipulationWhenEquipped: 0
   orientation: 0
-  AutoHold: 3
+  AutoHold: 2
   InteractionText: 
-  UseText: Use
+  UseText: Reel In
   useEventBroadcastType: 0
   UseDownEventName: 
   UseUpEventName: 
@@ -4015,7 +4015,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 0
-  m_IsKinematic: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
@@ -4136,8 +4136,8 @@ MonoBehaviour:
     PrefabModifications: []
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 1202007769}
-  reelSpeed: 8
-  minLineLength: 0.4
+  reelSpeed: 4
+  minLineLength: 0.8
   maxLineLength: 15
   fightResistance: 0.35
   slackTimeout: 2.5
@@ -4387,33 +4387,10 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
---- !u!136 &1202007782
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1202007768}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 0.5
-  m_Direction: 1
-  m_Center: {x: -0.042176977, y: 0.040898155, z: 0.8819938}
 --- !u!114 &1202007783
 MonoBehaviour:
   m_ObjectHideFlags: 2
@@ -4480,6 +4457,28 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   AllowCollisionOwnershipTransfer: 1
   ForceKinematicOnRemote: 0
+--- !u!64 &1202007788
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1202007768}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 1
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 5981143897065271039, guid: 2fc81dd48e4293442845f4b872c1b2f0, type: 3}
 --- !u!1 &1314117208
 GameObject:
   m_ObjectHideFlags: 0
@@ -4891,10 +4890,10 @@ MonoBehaviour:
   rodTip: {fileID: 2033264348}
   targetIndicator: {fileID: 1898336869}
   stateMachine: {fileID: 1202007772}
-  targetMoveSpeed: 5
-  targetMoveRadius: 2
+  targetMoveSpeed: 3
+  targetMoveRadius: 1.5
   directionChangeTime: 0.6
-  aimToleranceDegrees: 50
+  aimToleranceDegrees: 25
   snapTime: 4
   snapWarningTime: 1.5
   targetRenderer: {fileID: 1898336867}
@@ -5205,7 +5204,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1625117588}
   - component: {fileID: 1625117590}
-  - component: {fileID: 1625117589}
   m_Layer: 0
   m_Name: ReelSeat
   m_TagString: Untagged
@@ -5229,27 +5227,6 @@ Transform:
   - {fileID: 1177487676}
   m_Father: {fileID: 1314117209}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!135 &1625117589
-SphereCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1625117587}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
 --- !u!33 &1625117590
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -5997,10 +5974,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2fc81dd48e4293442845f4b872c1b2f0,
         type: 3}
       insertIndex: -1
-      addedObject: {fileID: 1202007782}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2fc81dd48e4293442845f4b872c1b2f0,
-        type: 3}
-      insertIndex: -1
       addedObject: {fileID: 1202007781}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2fc81dd48e4293442845f4b872c1b2f0,
         type: 3}
@@ -6018,6 +5991,10 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1202007787}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 2fc81dd48e4293442845f4b872c1b2f0,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1202007788}
   m_SourcePrefab: {fileID: 100100000, guid: 2fc81dd48e4293442845f4b872c1b2f0, type: 3}
 --- !u!1 &2033264347
 GameObject:
@@ -6455,29 +6432,29 @@ MonoBehaviour:
   useAssignedLayers: 0
   DynamicPrefabs: []
   DynamicMaterials:
-  - {fileID: -6922793697723135513, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
-  - {fileID: -3522955778539423533, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
-  - {fileID: -2813467912831258332, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
-  - {fileID: -6629797300637803691, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
-  - {fileID: -8274133419916619345, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
-  - {fileID: -3846018093981099296, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
-  - {fileID: 4874126678125670354, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
   - {fileID: -3846018093981099296, guid: f0f332ef8f0abb5428daae52459214c6, type: 3}
   - {fileID: 4874126678125670354, guid: f0f332ef8f0abb5428daae52459214c6, type: 3}
-  - {fileID: -2813467912831258332, guid: f0f332ef8f0abb5428daae52459214c6, type: 3}
-  - {fileID: -6922793697723135513, guid: f0f332ef8f0abb5428daae52459214c6, type: 3}
-  - {fileID: 2100000, guid: 284830dd46ce77c4696ef63853c7cf5e, type: 2}
-  - {fileID: -937913255710435349, guid: a7edf3c964f2d684dab75f64a8ca0bb3, type: 3}
-  - {fileID: 2100000, guid: c603b1978f7af4a48b8f5123898a17c2, type: 2}
   - {fileID: 4189962006397897740, guid: 242f132cd69a6944fa0d2be5a0081e17, type: 3}
   - {fileID: -5782452068296859645, guid: 242f132cd69a6944fa0d2be5a0081e17, type: 3}
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
-  - {fileID: 2100000, guid: 9ef7eeac519a6bf45b3ccc2dd10a707f, type: 2}
-  - {fileID: 2100000, guid: 32717417d7444824aa9450c924e7dcdd, type: 2}
+  - {fileID: -3846018093981099296, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
+  - {fileID: 4874126678125670354, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
+  - {fileID: -2813467912831258332, guid: f0f332ef8f0abb5428daae52459214c6, type: 3}
+  - {fileID: -6922793697723135513, guid: f0f332ef8f0abb5428daae52459214c6, type: 3}
+  - {fileID: -6629797300637803691, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
+  - {fileID: -8274133419916619345, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
+  - {fileID: -3522955778539423533, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
+  - {fileID: -2813467912831258332, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
+  - {fileID: -6922793697723135513, guid: b7a6c09315dd43e40a3996a58b313c9e, type: 3}
+  - {fileID: 2100000, guid: 284830dd46ce77c4696ef63853c7cf5e, type: 2}
+  - {fileID: -937913255710435349, guid: a7edf3c964f2d684dab75f64a8ca0bb3, type: 3}
   - {fileID: 2100000, guid: fa9695520e204f941b710e8e591de71f, type: 2}
   - {fileID: 4189962006397897740, guid: 692d29df53850314aa2a1511ddf46220, type: 3}
+  - {fileID: 2100000, guid: c603b1978f7af4a48b8f5123898a17c2, type: 2}
+  - {fileID: 2100000, guid: 32717417d7444824aa9450c924e7dcdd, type: 2}
   - {fileID: 4189962006397897740, guid: ed38b40ed1951244985228063df21ab4, type: 3}
   - {fileID: -6271897200390792742, guid: ed38b40ed1951244985228063df21ab4, type: 3}
+  - {fileID: 2100000, guid: 9ef7eeac519a6bf45b3ccc2dd10a707f, type: 2}
+  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
   LightMapsNear: []
   LightMapsFar: []
   LightMode: 0

@@ -1,0 +1,18 @@
+# Apple ModelI/O MTL File: FishGODS.mtl
+
+newmtl Material_Base
+	map_Kd Material_Base-color.png
+	Kd 1 1 1
+	Ka 0 0 0
+	Ks 0
+	ao 0
+	subsurface 0
+	map_metallic Material_Base-metallic.png
+	specularTint 0
+	map_roughness Material_Base-roughness.png
+	anisotropicRotation 0
+	sheen 0.05
+	sheenTint 0
+	clearCoat 0
+	clearCoatGloss 0
+
