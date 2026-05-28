@@ -3,12 +3,12 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using TMPro;
+using VRC.SDK3.Components;
 
 public class FishingBucket : UdonSharpBehaviour
 {
     [Header("References")]
-    public Transform[] fishSlots;           // child Transforms inside bucket
-                                            // defining where each fish sits visually
+    public Transform[]     fishSlots;
     public TextMeshProUGUI countText;
     public TextMeshProUGUI valueText;
 
@@ -16,8 +16,6 @@ public class FishingBucket : UdonSharpBehaviour
     public int maxCapacity = 5;
 
     [Header("Fish References")]
-    // Pre-assign every fish from all pools here —
-    // used to identify FishPrefab without typeof
     public FishPrefab[] knownFish;
 
     GameObject[] _storedFish;
@@ -32,35 +30,49 @@ public class FishingBucket : UdonSharpBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        Debug.Log("[Bucket] TriggerEnter: " + other.name);
         if (_fishCount >= maxCapacity) return;
 
-        // Find FishPrefab by matching GameObject
-        // instead of GetComponent with a user-defined type
         FishPrefab fish = FindFishPrefab(other.gameObject);
-        if (fish == null) return;
+        if (fish == null)
+        {
+            Debug.Log("[Bucket] Not a known fish: " + other.name);
+            return;
+        }
 
         VRC_Pickup pickup = (VRC_Pickup)other.gameObject
             .GetComponent(typeof(VRC_Pickup));
-        if (pickup == null)  return;
-        if (!pickup.IsHeld)  return;
+        if (pickup == null) return;
 
         AcceptFish(fish, pickup);
     }
 
     void AcceptFish(FishPrefab fish, VRC_Pickup pickup)
     {
-        // Force drop from player hand
-        pickup.Drop();
-
-        // Take ownership so we can move it
+        // Take ownership of the bucket and fish so we
+        // control both transforms from the same client
+        Networking.SetOwner(Networking.LocalPlayer, gameObject);
         Networking.SetOwner(Networking.LocalPlayer, fish.gameObject);
 
-        // Place in next available slot
+        // Force drop from hand before reparenting
+        pickup.Drop();
+
+        // ── Disable VRC Object Sync on the fish ──────────────
+        // This is the critical fix — if the fish has its own
+        // VRC Object Sync it will fight the bucket parenting
+        // by syncing its own world position every frame.
+        // Disabling it lets the fish follow the bucket as a
+        // normal child Transform.
+        VRCObjectSync fishSync = (VRCObjectSync)fish.gameObject
+            .GetComponent(typeof(VRCObjectSync));
+        if (fishSync != null)
+            fishSync.enabled = false;
+
+        // Parent fish to slot — now follows bucket reliably
         int slot = _fishCount;
         _storedFish[slot] = fish.gameObject;
         _fishCount++;
 
-        // Parent fish to slot Transform so it sits inside bucket
         if (slot < fishSlots.Length && fishSlots[slot] != null)
         {
             fish.transform.SetParent(fishSlots[slot]);
@@ -68,37 +80,55 @@ public class FishingBucket : UdonSharpBehaviour
             fish.transform.localRotation = Quaternion.identity;
         }
 
-        // Disable physics — fish is stored, not simulated
-        Rigidbody rb = (Rigidbody)fish.GetComponent(typeof(Rigidbody));
-        if (rb != null)
-        {
-            rb.isKinematic = true;
-            rb.useGravity  = false;
-            rb.velocity    = Vector3.zero;
-        }
+        // Disable physics
+         Rigidbody rb = (Rigidbody)fish.GetComponent(typeof(Rigidbody));
+         if (rb != null)
+         {
+        //     rb.useGravity     = false;
+        //     rb.velocity        = Vector3.zero;
+        //     rb.angularVelocity = Vector3.zero;
+             rb.isKinematic    = true;
 
-        // Disable pickup while stored in bucket
+         }
+
+        // Disable collider so it doesn't re-trigger the bucket
+        Collider fishCollider = (Collider)fish.GetComponent(typeof(Collider));
+        if (fishCollider != null)
+            fishCollider.enabled = false;
+
+        // Disable pickup while stored
         pickup.pickupable = false;
 
-        _totalValue += fish.GetValue();
+        _totalValue += fish.fishValue;
 
         Debug.Log("[Bucket] Stored " + fish.fishName
-                + "  value=" + fish.GetValue()
-                + "  count=" + _fishCount);
+                + "  value=" + fish.fishValue
+                + "  count=" + _fishCount
+                + "  slot=" + slot);
 
         RefreshUI();
     }
 
-    // Called by FishMarket after selling —
-    // deactivates all stored fish and resets the bucket
     public void EmptyBucket()
     {
         for (int i = 0; i < _fishCount; i++)
         {
             if (_storedFish[i] == null) continue;
 
-            // Re-enable pickup before deactivating so fish
-            // is in a clean state if the pool reuses it
+            // Re-enable VRC Object Sync so fish syncs
+            // its own position again after leaving bucket
+            VRCObjectSync fishSync = (VRCObjectSync)_storedFish[i]
+                .GetComponent(typeof(VRCObjectSync));
+            if (fishSync != null)
+                fishSync.enabled = true;
+
+            // Re-enable collider
+            Collider fishCollider = (Collider)_storedFish[i]
+                .GetComponent(typeof(Collider));
+            if (fishCollider != null)
+                fishCollider.enabled = true;
+
+            // Re-enable pickup
             VRC_Pickup pickup = (VRC_Pickup)_storedFish[i]
                 .GetComponent(typeof(VRC_Pickup));
             if (pickup != null)

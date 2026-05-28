@@ -1,8 +1,4 @@
-﻿// ReelHandle.cs
-// Attach to the ReelHandle GameObject alongside VRC_Pickup.
-// The player grabs this with their off hand and spins it.
-// Measures angular velocity around the reel axis and outputs
-// a reel input value for FishingStateMachine.
+﻿// ReelHandle.cs — full replacement
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
@@ -11,133 +7,215 @@ using VRC.SDKBase;
 public class ReelHandle : UdonSharpBehaviour
 {
     [Header("References")]
-    public Transform reelSeat;        // pivot — ReelHandle orbits around this
+    public Transform           reelSeat;
     public FishingStateMachine stateMachine;
 
     [Header("Reel Settings")]
-    public float orbitRadius = 0.06f;   // meters — 6cm matches real reel handle
-    public float minAngularSpeed = 45f;     // deg/sec minimum to register input
-    public float maxAngularSpeed = 360f;    // deg/sec = full reel speed
-    public float axialSlop = 0.03f;   // meters handle can move along reel axis
+    public float minAngularSpeed = 45f;
+    public float maxAngularSpeed = 360f;
+    public float orbitRadius     = 0.06f;   // 6cm — matches real reel handle
 
-    VRC_Pickup _pickup;
-    bool _isGrabbed = false;
-    float _prevAngle = 0f;
-    bool _prevAngleValid = false;
+    [Header("Reel Axis")]
+    // 0 = reelSeat.right, 1 = reelSeat.up, 2 = reelSeat.forward
+    public int reelAxisIndex = 0;
+
+    VRC_Pickup            _pickup;
+    bool                  _isGrabbed      = false;
+    bool                  _isVR           = false;
+    VRC_Pickup.PickupHand _heldHand       = VRC_Pickup.PickupHand.None;
+    float                 _prevAngle      = 0f;
+    bool                  _prevAngleValid = false;
+
+    // Resting position — where handle sits when not grabbed
+    Vector3 _restPosition;
 
     void Start()
     {
         _pickup = (VRC_Pickup)GetComponent(typeof(VRC_Pickup));
+
+        VRCPlayerApi player = Networking.LocalPlayer;
+        if (player != null)
+            _isVR = player.IsUserInVR();
+
+        // Store resting position so we can return to it on drop
+        if (reelSeat != null)
+            _restPosition = reelSeat.position + reelSeat.up * orbitRadius;
     }
 
     void Update()
     {
         if (!_isGrabbed)
         {
+            // Snap handle back to resting position on the reel
+            // so it doesn't float wherever the player dropped it
+            if (reelSeat != null)
+            {
+                _restPosition             = reelSeat.position + reelSeat.up * orbitRadius;
+                transform.position        = _restPosition;
+                transform.rotation        = reelSeat.rotation;
+            }
+
+            if (stateMachine != null)
+                stateMachine.debugReelOverride = 0f;
             return;
         }
 
+        // Constrain handle to orbit radius every frame —
+        // VRC Pickup moves it to hand position, we then
+        // project it onto the orbital plane at the correct radius
         ConstrainToOrbit();
-        MeasureRotation();
+
+        // Measure rotation using hand tracking data —
+        // more reliable than transform.position which we just moved
+        if (_isVR)
+            MeasureRotationVR();
+        else
+            MeasureRotationDesktop();
     }
 
-    // Keeps the handle locked to its orbit radius around the reel seat
-    // so it physically spins rather than being pulled away
+    // Keeps the handle locked to a sphere of radius orbitRadius
+    // around the reel seat — player can spin it around the reel
+    // axis but cannot pull it away or push it through the rod
     void ConstrainToOrbit()
     {
         if (reelSeat == null) return;
 
-        // Reel axis is the local right axis of the reel seat —
-        // adjust this to match your rod mesh orientation
-        Vector3 reelAxis = reelSeat.right;
-        Vector3 seatPos = reelSeat.position;
+        Vector3 reelAxis = GetReelAxis();
+        Vector3 seatPos  = reelSeat.position;
         Vector3 toHandle = transform.position - seatPos;
 
-        // Separate into axial (along reel shaft) and radial (around shaft)
-        float axial = Vector3.Dot(toHandle, reelAxis);
+        // Project out the axial component so handle stays
+        // on the plane perpendicular to the reel shaft
+        float   axial  = Vector3.Dot(toHandle, reelAxis);
         Vector3 radial = toHandle - axial * reelAxis;
 
-        // Clamp axial movement — handle can slide slightly but not pull off
-        axial = Mathf.Clamp(axial, -axialSlop, axialSlop);
+        // Clamp axial so handle can't slide along the shaft
+        axial = Mathf.Clamp(axial, -0.02f, 0.02f);
 
         // Force radial distance to exact orbit radius
         if (radial.magnitude > 0.001f)
             radial = radial.normalized * orbitRadius;
         else
-            radial = reelSeat.up * orbitRadius;  // fallback if dead center
+            radial = reelSeat.up * orbitRadius;
 
         transform.position = seatPos + radial + reelAxis * axial;
     }
 
-    // Measures how far the handle rotated this frame and
-    // converts angular velocity to a 0-1 reel input
-    void MeasureRotation()
+    // VR — uses GetTrackingData for hand position
+    // so the angle measurement is based on real hand movement
+    // not the constrained transform position
+    void MeasureRotationVR()
     {
         if (reelSeat == null) return;
 
-        Vector3 reelAxis = reelSeat.right;
-        Vector3 seatPos = reelSeat.position;
+        VRCPlayerApi player = Networking.LocalPlayer;
+        if (player == null) return;
 
-        // Project handle position onto plane perpendicular to reel axis
-        Vector3 toHandle = transform.position - seatPos;
-        Vector3 projected = toHandle - Vector3.Dot(toHandle, reelAxis) * reelAxis;
+        VRCPlayerApi.TrackingDataType trackingHand =
+            _heldHand == VRC_Pickup.PickupHand.Right
+            ? VRCPlayerApi.TrackingDataType.RightHand
+            : VRCPlayerApi.TrackingDataType.LeftHand;
 
-        if (projected.magnitude < 0.01f)
+        Vector3 handPos = player.GetTrackingData(trackingHand).position;
+
+        if (handPos == Vector3.zero)
         {
-            _prevAngleValid = false;
+            Debug.LogWarning("[ReelHandle] GetTrackingData returned zero");
             return;
         }
 
-        // Measure angle in the orbital plane
-        // Use reelSeat.up and reelSeat.forward as the plane axes
+        CalculateAngle(handPos);
+    }
+
+    // Desktop — uses mouse delta to simulate circular motion
+    // since GetTrackingData returns zero without a headset
+    void MeasureRotationDesktop()
+    {
+        if (stateMachine == null) return;
+
+        // Simulate reel via OnPickupUseDown hold in FishingRod —
+        // ReelHandle doesn't drive desktop reel directly
+        // This method intentionally does nothing so FishingRod
+        // handles desktop reeling via trigger hold
+    }
+
+    void CalculateAngle(Vector3 sourcePos)
+    {
+        if (reelSeat == null) return;
+
+        Vector3 reelAxis  = GetReelAxis();
+        Vector3 seatPos   = reelSeat.position;
+        Vector3 toSource  = sourcePos - seatPos;
+        Vector3 projected = toSource - Vector3.Dot(toSource, reelAxis) * reelAxis;
+
+        if (projected.magnitude < 0.02f)
+        {
+            _prevAngleValid = false;
+            Debug.LogWarning("[ReelHandle] Projected too small="
+                           + projected.magnitude.ToString("F4")
+                           + "  try a different reelAxisIndex");
+            return;
+        }
+
         float currentAngle = Mathf.Atan2(
             Vector3.Dot(projected, reelSeat.forward),
             Vector3.Dot(projected, reelSeat.up)) * Mathf.Rad2Deg;
 
         if (_prevAngleValid)
         {
-            float deltaAngle = Mathf.DeltaAngle(_prevAngle, currentAngle);
+            float deltaAngle   = Mathf.DeltaAngle(_prevAngle, currentAngle);
             float angularSpeed = Mathf.Abs(deltaAngle) / Time.deltaTime;
 
-            // Only count forward spinning — backwards does nothing
+            // Accept spin in either direction for accessibility —
+            // change to deltaAngle > 0f to restrict to one direction
             float rawInput = 0f;
-            if (deltaAngle > 0f)
-            {
+            if (Mathf.Abs(deltaAngle) > 0.1f)
                 rawInput = Mathf.Clamp01(
                     Mathf.InverseLerp(minAngularSpeed, maxAngularSpeed, angularSpeed));
-            }
 
             if (stateMachine != null)
                 stateMachine.debugReelOverride = rawInput;
+
+            Debug.Log("[ReelHandle] delta="  + deltaAngle.ToString("F2")
+                    + "  speed=" + angularSpeed.ToString("F1")
+                    + "  input=" + rawInput.ToString("F3"));
         }
 
-        _prevAngle = currentAngle;
+        _prevAngle      = currentAngle;
         _prevAngleValid = true;
+    }
+
+    Vector3 GetReelAxis()
+    {
+        if (reelAxisIndex == 1) return reelSeat.up;
+        if (reelAxisIndex == 2) return reelSeat.forward;
+        return reelSeat.right;
     }
 
     public override void OnPickup()
     {
-        _isGrabbed = true;
+        _isGrabbed      = true;
         _prevAngleValid = false;
+        _heldHand       = _pickup.currentHand;
+
+        VRCPlayerApi player = Networking.LocalPlayer;
+        if (player != null)
+            _isVR = player.IsUserInVR();
 
         Networking.SetOwner(Networking.LocalPlayer, gameObject);
 
-        Debug.Log("[ReelHandle] Grabbed");
+        Debug.Log("[ReelHandle] Grabbed — hand=" + _heldHand
+                + "  isVR=" + _isVR);
     }
 
     public override void OnDrop()
     {
-        _isGrabbed = false;
+        _isGrabbed      = false;
+        _prevAngleValid = false;
+        _heldHand       = VRC_Pickup.PickupHand.None;
 
-        // Only clear if handle itself was controlling reeling
-        if (stateMachine != null &&
-            stateMachine.debugReelOverride > 0f)
-        {
+        if (stateMachine != null)
             stateMachine.debugReelOverride = 0f;
-        }
-
-        if (reelSeat != null)
-            transform.position = reelSeat.position + reelSeat.up * orbitRadius;
 
         Debug.Log("[ReelHandle] Released");
     }
