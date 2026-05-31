@@ -12,7 +12,7 @@ public class CastManager : UdonSharpBehaviour
 
     [Header("Cast Settings")]
     public float pcCastPower      = 8.0f;   // fixed cast power for PC players
-    public float vrCastMultiplier = 1.4f;   // scales VR hand velocity
+    public float vrCastMultiplier = 2.0f;   // scales VR hand velocity
     public float minVRCastSpeed   = 1.5f;   // minimum hand speed to register a VR cast
 
     [Header("Bobber Bob Settings")]
@@ -94,6 +94,10 @@ public class CastManager : UdonSharpBehaviour
         bobberInWater      = false;
         bobber.isKinematic = false;
         bobber.velocity    = lastCastVelocity;
+
+        bobber.drag        = 0.1f;
+        bobber.angularDrag = 0.1f;
+
 
         if (bobberRenderer != null)
             bobberRenderer.enabled = true;

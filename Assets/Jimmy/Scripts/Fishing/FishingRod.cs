@@ -14,6 +14,7 @@ public class FishingRod : UdonSharpBehaviour
     // ReelHandle manages its own debugReelOverride via its own script —
     // no reference needed here, it writes directly to the state machine
 
+    public ReelHandle reelHandle;
     [Header("Settings")]
     public float holdThreshold = 0.25f;     // seconds for tap vs hold on trigger
 
@@ -80,7 +81,19 @@ void Update()
     }
 }
 
-    public override void OnPickup()
+public override void OnPickup()
+{
+    _isHeld = true;
+
+    // Enable reel handle now that rod is held
+    if (reelHandle != null)
+        reelHandle.EnableHandle();
+
+    Networking.SetOwner(Networking.LocalPlayer, gameObject);
+    if (bobberObject != null)
+        Networking.SetOwner(Networking.LocalPlayer, bobberObject);
+
+    if (stateMachine != null)
     {
         _isHeld = true;
         _triggerDown = false;
@@ -102,7 +115,18 @@ void Update()
         Debug.Log("[FishingRod] Picked up — isVR=" + _isVR);
     }
 
-    public override void OnDrop()
+    Debug.Log("[FishingRod] Picked up — isVR=" + _isVR);
+}
+
+public override void OnDrop()
+{
+    _isHeld = false;
+
+    // Disable reel handle when rod is dropped
+    if (reelHandle != null)
+        reelHandle.DisableHandle();
+
+    if (stateMachine != null)
     {
         _isHeld = false;
         _triggerDown = false;
@@ -117,6 +141,9 @@ void Update()
 
         Debug.Log("[FishingRod] Dropped");
     }
+
+    Debug.Log("[FishingRod] Dropped");
+}
 
     public override void OnPickupUseDown()
     {

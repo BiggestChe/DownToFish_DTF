@@ -29,18 +29,45 @@ public class ReelHandle : UdonSharpBehaviour
     // Resting position — where handle sits when not grabbed
     Vector3 _restPosition;
 
-    void Start()
+// Add to ReelHandle.cs
+void Start()
+{
+    _pickup = (VRC_Pickup)GetComponent(typeof(VRC_Pickup));
+
+    VRCPlayerApi player = Networking.LocalPlayer;
+    if (player != null)
+        _isVR = player.IsUserInVR();
+
+    // Disable pickup until the rod is picked up —
+    // prevents players grabbing the handle before the rod
+    if (_pickup != null)
+        _pickup.pickupable = false;
+
+    if (reelSeat != null)
+        _restPosition = reelSeat.position + reelSeat.up * orbitRadius;
+}
+
+public void EnableHandle()
+{
+    if (_pickup != null)
+        _pickup.pickupable = true;
+    Debug.Log("[ReelHandle] Enabled");
+}
+
+public void DisableHandle()
+{
+    if (_pickup != null)
+        _pickup.pickupable = false;
+
+    // If someone was holding it when rod was dropped, force release
+    if (_isGrabbed)
     {
-        _pickup = (VRC_Pickup)GetComponent(typeof(VRC_Pickup));
-
-        VRCPlayerApi player = Networking.LocalPlayer;
-        if (player != null)
-            _isVR = player.IsUserInVR();
-
-        // Store resting position so we can return to it on drop
-        if (reelSeat != null)
-            _restPosition = reelSeat.position + reelSeat.up * orbitRadius;
+        _pickup.Drop();
+        _isGrabbed = false;
     }
+
+    Debug.Log("[ReelHandle] Disabled");
+}
 
     void Update()
     {
