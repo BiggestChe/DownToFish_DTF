@@ -12,10 +12,8 @@ public class DebugMenu : UdonSharpBehaviour
 
     [Header("Dummy Cast Values")]
     public Vector3 dummyCastDirection = new Vector3(0f, 0.4f, 1f);
-    public float dummyCastSpeed = 6.0f;
+    public float   dummyCastSpeed     = 6.0f;
 
-    // World position to place the bobber when simulating a landing.
-    // Set this to somewhere in front of the player in the Scene view.
     [Header("Debug Bobber")]
     public Vector3 debugBobberLandPosition = new Vector3(0f, 0f, 5f);
 
@@ -25,7 +23,7 @@ public class DebugMenu : UdonSharpBehaviour
     public TextMeshProUGUI fishingManagerText;
     public TextMeshProUGUI castManagerText;
 
-    [Header("Keyboard Shortcuts")]
+    [Header("Keyboard Shortcuts (editor only)")]
     public KeyCode castKey         = KeyCode.C;
     public KeyCode bobberLandKey   = KeyCode.B;
     public KeyCode reelHoldKey     = KeyCode.R;
@@ -34,19 +32,25 @@ public class DebugMenu : UdonSharpBehaviour
     public KeyCode instantBiteKey  = KeyCode.I;
     public KeyCode fullSequenceKey = KeyCode.Tab;
 
-    bool _autoRunning = false;
-    int  _autoStep    = 0;
-    float _autoTimer  = 0f;
-    const float STEP_DELAY = 0.6f;
-
-    float _reelOverrideTimer    = 0f;
+    bool  _autoRunning        = false;
+    int   _autoStep           = 0;
+    float _autoTimer          = 0f;
+    float _reelOverrideTimer  = 0f;
     float _reelOverrideDuration = 0f;
+
+    const float STEP_DELAY = 0.6f;
 
     void Update()
     {
         if (stateMachine == null) return;
 
+        // Keyboard input only works reliably in Unity editor —
+        // Input.GetKey is broken in shipped VRChat builds on SDK 3.6.1+
+        // Canvas buttons handle input in the shipped world instead
+        #if UNITY_EDITOR
         HandleKeyboard();
+        #endif
+
         TickReelOverride();
         TickAutoSequence();
         RefreshLabels();
@@ -61,6 +65,7 @@ public class DebugMenu : UdonSharpBehaviour
         if (Input.GetKeyDown(resetKey))        SimulateReset();
         if (Input.GetKeyDown(fullSequenceKey)) StartAutoSequence();
 
+        // R held — set reel override each frame
         if (Input.GetKey(reelHoldKey))
             stateMachine.debugReelOverride = 0.8f;
         else if (Input.GetKeyUp(reelHoldKey))
@@ -76,8 +81,8 @@ public class DebugMenu : UdonSharpBehaviour
         if (_reelOverrideTimer >= _reelOverrideDuration)
         {
             stateMachine.debugReelOverride = 0f;
-            _reelOverrideDuration = 0f;
-            _reelOverrideTimer    = 0f;
+            _reelOverrideDuration          = 0f;
+            _reelOverrideTimer             = 0f;
             Debug.Log("[FishingDebug] Reel override ended");
         }
     }
@@ -86,8 +91,8 @@ public class DebugMenu : UdonSharpBehaviour
     {
         if (stateMachine == null) return;
         stateMachine.debugReelOverride = 0.8f;
-        _reelOverrideDuration = duration;
-        _reelOverrideTimer    = 0f;
+        _reelOverrideDuration          = duration;
+        _reelOverrideTimer             = 0f;
     }
 
     // ── Auto sequence ─────────────────────────────────────
@@ -106,8 +111,6 @@ public class DebugMenu : UdonSharpBehaviour
 
         _autoTimer += Time.deltaTime;
 
-        // Step 4 waits for the reel override to finish naturally
-        // rather than advancing after a fixed delay
         if (_autoStep == 4)
         {
             if (stateMachine.debugReelOverride > 0f) return;
@@ -178,7 +181,7 @@ public class DebugMenu : UdonSharpBehaviour
         }
     }
 
-    // ── Simulation methods ────────────────────────────────
+    // ── Simulation methods (also wired to canvas buttons) ─
 
     public void SimulateCast()
     {
@@ -187,6 +190,7 @@ public class DebugMenu : UdonSharpBehaviour
         Vector3 vel = dummyCastDirection.normalized * dummyCastSpeed;
         stateMachine.castManager.lastCastVelocity = vel;
         stateMachine.castManager.InjectVelocity(vel);
+        stateMachine.OnCastInput(false);
         Debug.Log("[FishingDebug] SimulateCast  mag=" + vel.magnitude.ToString("F2"));
     }
 
@@ -194,12 +198,9 @@ public class DebugMenu : UdonSharpBehaviour
     {
         if (stateMachine == null || stateMachine.castManager == null) return;
 
-        // Place the bobber at a known world position before calling
-        // OnBobberLanded so waterLandingPosition is valid and
-        // UpdateBobberPosition has a real direction to reel along
         stateMachine.castManager.bobber.transform.position = debugBobberLandPosition;
-
         stateMachine.castManager.OnBobberLanded();
+        stateMachine.OnBobberLanded();
         Debug.Log("[FishingDebug] SimulateBobberLand at " + debugBobberLandPosition);
     }
 

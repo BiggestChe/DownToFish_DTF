@@ -8,56 +8,62 @@ using VRC.Udon.Common;
 public class FishingRod : UdonSharpBehaviour
 {
     [Header("References")]
-    public Transform           rodTip;
+    public Transform rodTip;
     public FishingStateMachine stateMachine;
-    public GameObject          bobberObject;
+    public GameObject bobberObject;
     // ReelHandle manages its own debugReelOverride via its own script —
     // no reference needed here, it writes directly to the state machine
 
     [Header("Settings")]
     public float holdThreshold = 0.25f;     // seconds for tap vs hold on trigger
 
-    VRC_Pickup   _pickup;
+    VRC_Pickup _pickup;
     VRCPlayerApi _localPlayer;
-    bool         _isHeld          = false;
-    bool         _isVR            = false;
-    bool         _triggerDown     = false;
-    float        _triggerHeldTime = 0f;
-    bool         _isReeling       = false;
+    bool _isHeld = false;
+    bool _isVR = false;
+    bool _triggerDown = false;
+    float _triggerHeldTime = 0f;
+    bool _isReeling = false;
 
     void Start()
     {
-        _pickup      = (VRC_Pickup)GetComponent(typeof(VRC_Pickup));
+        _pickup = (VRC_Pickup)GetComponent(typeof(VRC_Pickup));
         _localPlayer = Networking.LocalPlayer;
 
         if (_localPlayer != null)
             _isVR = _localPlayer.IsUserInVR();
     }
 
-    void Update()
+void Update()
+{
+    if (!_isHeld || stateMachine == null) return;
+
+    if (stateMachine.castManager != null)
+        stateMachine.castManager.TrackTipPosition();
+
+    // Trigger hold — VR fallback reel and desktop hold E reel
+    if (_triggerDown)
     {
-        if (!_isHeld || stateMachine == null) return;
+        _triggerHeldTime += Time.deltaTime;
 
-        // Track tip position every frame so CastVR() has a valid
-        // velocity delta at the moment of trigger press
-        if (stateMachine.castManager != null)
-            stateMachine.castManager.TrackTipPosition();
-
-        // Trigger hold fallback for VR — if player can't find the
-        // reel handle they can still hold trigger to reel slowly
-        if (_isVR && _triggerDown)
+        if (_triggerHeldTime >= holdThreshold)
         {
-            _triggerHeldTime += Time.deltaTime;
-            if (_triggerHeldTime >= holdThreshold)
+            _isReeling = true;
+
+            if (stateMachine.debugReelOverride < 0.05f)
             {
-                _isReeling = true;
-                // Only override if reel handle isn't already providing input
-                if (stateMachine.debugReelOverride < 0.05f)
-                    stateMachine.debugReelOverride = 0.6f;
+                if (stateMachine.currentState == State.Reeling ||
+                    stateMachine.currentState == State.Fishing)
+                {
+                    stateMachine.debugReelOverride = 0.9f;
+                }
             }
         }
+    }
 
-        // Desktop — hold E to reel
+    // R key reel — desktop only, works on SDK 3.6.2+
+    // If this stops working your SDK version is 3.6.1 which
+    // broke Input.GetKey — update via VCC to restore it
     if (!_isVR)
     {
         if (Input.GetKey(KeyCode.R) &&
@@ -65,21 +71,20 @@ public class FishingRod : UdonSharpBehaviour
             stateMachine.currentState == State.Fishing))
         {
             stateMachine.debugReelOverride = 1f;
+            Debug.Log("trying to reel on pc");
         }
-        else if (!Input.GetKey(KeyCode.R))
+        else if (!Input.GetKey(KeyCode.R) && !_triggerDown)
         {
-            // Only clear if trigger isn't also holding
-            if (!_triggerDown)
-                stateMachine.debugReelOverride = 0f;
+            stateMachine.debugReelOverride = 0f;
         }
     }
-    }
+}
 
     public override void OnPickup()
     {
-        _isHeld          = true;
-        _triggerDown     = false;
-        _isReeling       = false;
+        _isHeld = true;
+        _triggerDown = false;
+        _isReeling = false;
         _triggerHeldTime = 0f;
 
         Networking.SetOwner(Networking.LocalPlayer, gameObject);
@@ -99,9 +104,9 @@ public class FishingRod : UdonSharpBehaviour
 
     public override void OnDrop()
     {
-        _isHeld          = false;
-        _triggerDown     = false;
-        _isReeling       = false;
+        _isHeld = false;
+        _triggerDown = false;
+        _isReeling = false;
         _triggerHeldTime = 0f;
 
         if (stateMachine != null)
@@ -117,9 +122,9 @@ public class FishingRod : UdonSharpBehaviour
     {
         if (stateMachine == null) return;
 
-        _triggerDown     = true;
+        _triggerDown = true;
         _triggerHeldTime = 0f;
-        _isReeling       = false;
+        _isReeling = false;
 
         Debug.Log("[FishingRod] Trigger down — state=" + stateMachine.currentState);
     }
@@ -130,8 +135,8 @@ public class FishingRod : UdonSharpBehaviour
 
         bool wasReeling = _isReeling;
 
-        _triggerDown     = false;
-        _isReeling       = false;
+        _triggerDown = false;
+        _isReeling = false;
         _triggerHeldTime = 0f;
 
         // Clear trigger hold override — reel handle may still be active

@@ -107,79 +107,80 @@ public class FishingStateMachine : UdonSharpBehaviour
         }
     }
 
-    void UpdateFishing()
+void UpdateFishing()
+{
+    if (fishingManager == null || reelManager == null) return;
+
+    fishingManager.TickFishing();
+
+    if (castManager != null) castManager.TickBob();
+
+    if (_biteShown && biteIndicator != null
+    &&  castManager != null && castManager.bobber != null)
+        biteIndicator.UpdatePosition(castManager.bobber.transform.position);
+
+    if (lineRenderer != null)
+        lineRenderer.UpdateLine(reelManager.lineLength, false);
+
+    if (fishingManager.fishIsBiting && !_biteShown)
     {
-        if (fishingManager == null || reelManager == null) return;
-
-        fishingManager.TickFishing();
-
-        if (castManager != null) castManager.TickBob();
-
-        // Keep bite indicator following bobber as it bobs
-        if (_biteShown && biteIndicator != null
-        &&  castManager != null && castManager.bobber != null)
-            biteIndicator.UpdatePosition(castManager.bobber.transform.position);
-
-        if (lineRenderer != null)
-            lineRenderer.UpdateLine(reelManager.lineLength, false);
-
-        // Show bite indicator the first frame fishIsBiting becomes true
-        if (fishingManager.fishIsBiting && !_biteShown)
-        {
-            _biteShown = true;
-            if (biteIndicator != null && castManager != null
-            &&  castManager.bobber != null)
-                biteIndicator.ShowBite(castManager.bobber.transform.position);
-        }
-
-        if (fishingManager.fishIsBiting)
-        {
-            // Any reel input transitions to Reeling
-            if (debugReelOverride > 0.05f)
-                TransitionTo(State.Reeling);
-        }
-        else
-        {
-            // High threshold prevents accidental retrieval
-            if (debugReelOverride > 0.5f)
-                TransitionTo(State.Idle);
-        }
+        _biteShown = true;
+        if (biteIndicator != null && castManager != null
+        &&  castManager.bobber != null)
+            biteIndicator.ShowBite(castManager.bobber.transform.position);
     }
 
-    void UpdateReeling()
+    if (fishingManager.fishIsBiting)
     {
-        if (reelManager == null || fishingManager == null) return;
-
-        // debugReelOverride is set by either:
-        // ReelHandle  — circular spin speed (0-1)
-        // FishingRod  — trigger hold (0.6) or desktop E (1.0)
-        float reelInput = debugReelOverride;
-
-        reelManager.TickReel(reelInput, fishingManager.strugglePullRequest);
-        fishingManager.strugglePullRequest = 0f;
-        fishingManager.TickFight();
-
-        if (castManager != null)
-            castManager.UpdateBobberPosition(reelManager.lineLength);
-
-        if (lineRenderer != null)
-            lineRenderer.UpdateLine(reelManager.lineLength, true);
-
-        if (reelManager.lineAtMinimum)
-        {
-            fishingManager.ResolveCatch();
-            debugReelOverride = 0f;
-            TransitionTo(State.Caught);
-        }
-        else if (reelManager.wentSlack || fishingManager.fishEscaped)
-        {
-            Debug.Log("[FSM] Escape — wentSlack="  + reelManager.wentSlack
-                    + "  fishEscaped="             + fishingManager.fishEscaped
-                    + "  lineLength="              + reelManager.lineLength.ToString("F2"));
-            debugReelOverride = 0f;
-            TransitionTo(State.Idle);
-        }
+        // Fish is biting — any reel input starts the fight
+        if (debugReelOverride > 0.05f)
+            TransitionTo(State.Reeling);
     }
+
+    // Retrieval back to Idle only happens via OnUseInput (tap E/trigger)
+    // NOT from reel input — this prevents holding R from cancelling the cast
+    // OnUseInput handles the "recall bobber" case via tap detection in FishingRod
+}
+    // In FishingStateMachine.cs — UpdateReeling
+void UpdateReeling()
+{
+    if (reelManager == null || fishingManager == null) return;
+
+    float reelInput = debugReelOverride;
+
+    // Log every few seconds so we can see what's happening
+    // without flooding the console — remove before publishing
+    if (Time.frameCount % 60 == 0)
+        Debug.Log("[FSM] Reeling — input=" + reelInput.ToString("F2")
+                + "  lineLength=" + reelManager.lineLength.ToString("F2")
+                + "  slack=" + reelManager.wentSlack
+                + "  escaped=" + fishingManager.fishEscaped);
+
+    reelManager.TickReel(reelInput, fishingManager.strugglePullRequest);
+    fishingManager.strugglePullRequest = 0f;
+    fishingManager.TickFight();
+
+    if (castManager != null)
+        castManager.UpdateBobberPosition(reelManager.lineLength);
+
+    if (lineRenderer != null)
+        lineRenderer.UpdateLine(reelManager.lineLength, true);
+
+    if (reelManager.lineAtMinimum)
+    {
+        fishingManager.ResolveCatch();
+        debugReelOverride = 0f;
+        TransitionTo(State.Caught);
+    }
+    else if (reelManager.wentSlack || fishingManager.fishEscaped)
+    {
+        Debug.Log("[FSM] Escape — wentSlack="  + reelManager.wentSlack
+                + "  fishEscaped="             + fishingManager.fishEscaped
+                + "  lineLength="              + reelManager.lineLength.ToString("F2"));
+        debugReelOverride = 0f;
+        TransitionTo(State.Idle);
+    }
+}
 
     void UpdateCaught()
     {

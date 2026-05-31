@@ -3556,6 +3556,7 @@ MonoBehaviour:
   maxLineLength: 15
   fightResistance: 0.35
   slackTimeout: 2.5
+  debugDisableEscape: 1
   lineLength: 10
   lineAtMinimum: 0
   wentSlack: 0
@@ -6326,10 +6327,10 @@ BoxCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 3
-  m_Size: {x: 0.06082654, y: 0.72703874, z: 0.8}
-  m_Center: {x: -0.41037667, y: 0.36351937, z: -0.00000011920929}
+  m_Size: {x: 0.08576393, y: 0.5677924, z: 0.8}
+  m_Center: {x: -0.42284536, y: 0.2838962, z: -0.00000011920929}
 --- !u!65 &3469287838632006131
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -6412,8 +6413,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.8, y: 0.72703874, z: 0.122918606}
-  m_Center: {x: 0, y: 0.36351937, z: -0.4148366}
+  m_Size: {x: 0.8, y: 0.33566833, z: 0.09127951}
+  m_Center: {x: 0, y: 0.84537053, z: -0.43065614}
 --- !u!4 &3480278762663400089
 Transform:
   m_ObjectHideFlags: 0
