@@ -25,7 +25,7 @@ public class FishingStateMachine : UdonSharpBehaviour
 
     [Header("Settings")]
     public float caughtDisplayTime = 2.0f;
-    public float castTimeout       = 4.0f;
+    public float castTimeout       = 8.0f;
 
     float _caughtTimer = 0f;
     float _castTimer   = 0f;
@@ -98,13 +98,17 @@ public class FishingStateMachine : UdonSharpBehaviour
             return;
         }
 
+        if (actualDist > 1.0f)
+    {
         _castTimer += Time.deltaTime;
         if (_castTimer >= castTimeout)
         {
-            Debug.Log("[FSM] Cast timed out — recalling");
+            Debug.Log("[FSM] Cast timed out");
             _castTimer = 0f;
             TransitionTo(State.Idle);
         }
+    }
+
     }
 
     void UpdateFishing()

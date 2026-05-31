@@ -11,8 +11,8 @@ public class FishingRod : UdonSharpBehaviour
     public Transform           rodTip;
     public FishingStateMachine stateMachine;
     public GameObject          bobberObject;
-    // ReelHandle manages its own debugReelOverride via its own script —
-    // no reference needed here, it writes directly to the state machine
+
+    public ReelHandle reelHandle;
 
     [Header("Settings")]
     public float holdThreshold = 0.25f;     // seconds for tap vs hold on trigger
@@ -24,7 +24,7 @@ public class FishingRod : UdonSharpBehaviour
     bool         _triggerDown     = false;
     float        _triggerHeldTime = 0f;
     bool         _isReeling       = false;
-
+    
     void Start()
     {
         _pickup      = (VRC_Pickup)GetComponent(typeof(VRC_Pickup));
@@ -33,6 +33,7 @@ public class FishingRod : UdonSharpBehaviour
         if (_localPlayer != null)
             _isVR = _localPlayer.IsUserInVR();
     }
+
 
     void Update()
     {
@@ -75,43 +76,44 @@ public class FishingRod : UdonSharpBehaviour
     }
     }
 
-    public override void OnPickup()
+public override void OnPickup()
+{
+    _isHeld = true;
+
+    // Enable reel handle now that rod is held
+    if (reelHandle != null)
+        reelHandle.EnableHandle();
+
+    Networking.SetOwner(Networking.LocalPlayer, gameObject);
+    if (bobberObject != null)
+        Networking.SetOwner(Networking.LocalPlayer, bobberObject);
+
+    if (stateMachine != null)
     {
-        _isHeld          = true;
-        _triggerDown     = false;
-        _isReeling       = false;
-        _triggerHeldTime = 0f;
-
-        Networking.SetOwner(Networking.LocalPlayer, gameObject);
-
-        if (bobberObject != null)
-            Networking.SetOwner(Networking.LocalPlayer, bobberObject);
-
-        if (stateMachine != null)
-        {
-            if (stateMachine.castManager != null)
-                stateMachine.castManager.OnRodPickedUp();
-            stateMachine.OnRodPickedUp();
-        }
-
-        Debug.Log("[FishingRod] Picked up — isVR=" + _isVR);
+        if (stateMachine.castManager != null)
+            stateMachine.castManager.OnRodPickedUp();
+        stateMachine.OnRodPickedUp();
     }
 
-    public override void OnDrop()
+    Debug.Log("[FishingRod] Picked up — isVR=" + _isVR);
+}
+
+public override void OnDrop()
+{
+    _isHeld = false;
+
+    // Disable reel handle when rod is dropped
+    if (reelHandle != null)
+        reelHandle.DisableHandle();
+
+    if (stateMachine != null)
     {
-        _isHeld          = false;
-        _triggerDown     = false;
-        _isReeling       = false;
-        _triggerHeldTime = 0f;
-
-        if (stateMachine != null)
-        {
-            stateMachine.debugReelOverride = 0f;
-            stateMachine.OnRodDropped();
-        }
-
-        Debug.Log("[FishingRod] Dropped");
+        stateMachine.debugReelOverride = 0f;
+        stateMachine.OnRodDropped();
     }
+
+    Debug.Log("[FishingRod] Dropped");
+}
 
     public override void OnPickupUseDown()
     {
