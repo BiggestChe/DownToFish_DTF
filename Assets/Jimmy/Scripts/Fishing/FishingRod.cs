@@ -87,7 +87,10 @@ public override void OnPickup()
 
     // Enable reel handle now that rod is held
     if (reelHandle != null)
-        reelHandle.EnableHandle();
+        {
+            reelHandle.EnableHandle();
+        }
+
 
     Networking.SetOwner(Networking.LocalPlayer, gameObject);
     if (bobberObject != null)

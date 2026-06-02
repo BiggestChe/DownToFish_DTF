@@ -61,7 +61,7 @@ public class RodSpawner : UdonSharpBehaviour
             return;
         }
 
-        ActivateRodForTier(data.rodTier);
+        //ActivateRodForTier(data.rodTier);
     }
 
     // Called by UpgradeItem after purchase

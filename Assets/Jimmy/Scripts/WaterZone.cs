@@ -1,78 +1,92 @@
-﻿// WaterZone.cs
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
 public class WaterZone : UdonSharpBehaviour
 {
-    [Header("References")]
-    // Assign the FishingStateMachine directly in the Inspector.
-    // UdonSharp does not support typeof on user-defined types so
-    // we cannot use GetComponent to find it at runtime.
-    public FishingStateMachine stateMachine;
-
     [Header("Zone Settings")]
     public string zoneName = "Ocean";
-    public bool   isActive = true;
+    public bool isActive = true;
 
-    [Header("Fish Spawn Weights")]
-    public float commonFishWeight    = 70f;
-    public float rareFishWeight      = 25f;
-    public float legendaryFishWeight = 5f;
+    [Header("Base Weights (Beginner Rod)")]
+    public float commonBaseWeight    = 70f;
+    public float rareBaseWeight      = 25f;
+    public float legendaryBaseWeight = 5f;
+
+    [Header("Settle Settings")]
+    public float settleTime = 2.0f;
+    float _landedTime = -999f;
 
     void OnTriggerEnter(Collider other)
     {
-        if (!isActive)          return;
-        if (stateMachine == null)
+        if (!isActive || other == null) return;
+
+        GameObject bobberRoot = other.gameObject;
+        if (other.attachedRigidbody != null)
         {
-            Debug.LogWarning("[WaterZone:" + zoneName + "] stateMachine not assigned");
-            return;
+            bobberRoot = other.attachedRigidbody.gameObject;
         }
 
-        // Only respond to the bobber — ignore players, fish, etc
-        if (other.gameObject.name != "Bobber") return;
+        FishingStateMachine stateMachine = other.GetComponentInParent<FishingStateMachine>();
+        if (stateMachine == null) return;
 
-        Debug.Log("[WaterZone:" + zoneName + "] Bobber entered — state="
-                + stateMachine.currentState);
-
-        // Only register a landing if a cast is in progress —
-        // prevents false triggers when bobber resets to rod tip
-        // and passes through the collider during state reset
+        if (stateMachine.castManager != null && stateMachine.castManager.bobberInWater) return;
         if (stateMachine.currentState != State.Cast) return;
 
+        _landedTime = Time.time;
+        stateMachine.currentZone = this;
         stateMachine.OnBobberLanded();
         stateMachine.OnEnteredZone(this);
-
-        Debug.Log("[WaterZone:" + zoneName + "] Bobber landed — notified FSM");
     }
 
     void OnTriggerExit(Collider other)
     {
-        if (!isActive)           return;
-        if (stateMachine == null) return;
-        if (other.gameObject.name != "Bobber") return;
+        if (other == null) return;
 
-        Debug.Log("[WaterZone:" + zoneName + "] Bobber exited");
-
-        // If bobber leaves zone during Fishing the player reeled
-        // out of bounds — recall automatically
-        if (stateMachine.currentState == State.Fishing)
+        GameObject bobberRoot = other.gameObject;
+        if (other.attachedRigidbody != null)
         {
-            Debug.Log("[WaterZone:" + zoneName + "] Recalling — bobber left zone");
-            stateMachine.OnBobberLeftZone();
+            bobberRoot = other.attachedRigidbody.gameObject;
         }
+
+        FishingStateMachine stateMachine = other.GetComponentInParent<FishingStateMachine>();
+        if (stateMachine == null || stateMachine.currentZone != this) return;
+
+        float timeSinceLanding = Time.time - _landedTime;
+
+        if (stateMachine.currentState != State.Fishing) return;
+        if (timeSinceLanding < settleTime) return;
+        if (stateMachine.castManager != null && !stateMachine.castManager.bobberInWater) return;
+
+        stateMachine.OnBobberLeftZone();
     }
 
-    // Returns a fish tier based on this zone's weights.
-    // Called by FishingStateMachine when a fish bites.
-    // 0 = common, 1 = rare, 2 = legendary
-    public int RollFishTier()
+    // ── THE CHANCE SCALING ENGINE ───────────────────────────────────
+    // Modifies probability arrays based on what rod type is cast into the pool
+    public int RollFishTier(int rodTier)
     {
-        float total = commonFishWeight + rareFishWeight + legendaryFishWeight;
-        float roll  = Random.Range(0f, total);
+        float common = commonBaseWeight;
+        float rare = rareBaseWeight;
+        float legendary = legendaryBaseWeight;
 
-        if (roll < commonFishWeight)                          return 0;
-        if (roll < commonFishWeight + rareFishWeight)         return 1;
-        return 2;
+        if (rodTier == 1) // Carbon Rod: Balances common and rare distributions
+        {
+            common = 45f;
+            rare = 45f;
+            legendary = 10f;
+        }
+        else if (rodTier == 2) // Divine Rod: Drastically favors high tier targets
+        {
+            common = 20f;
+            rare = 50f;
+            legendary = 30f;
+        }
+
+        float total = common + rare + legendary;
+        float roll = Random.Range(0f, total);
+
+        if (roll < common)          return 0; // Common
+        if (roll < common + rare)   return 1; // Rare
+        return 2;                             // Legendary
     }
 }

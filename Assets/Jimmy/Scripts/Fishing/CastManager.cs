@@ -8,28 +8,28 @@ public class CastManager : UdonSharpBehaviour
     [Header("References")]
     public Rigidbody bobber;
     public Transform rodTip;
-    public Renderer  bobberRenderer;
+    public Renderer bobberRenderer;
 
     [Header("Cast Settings")]
-    public float pcCastPower      = 8.0f;   // fixed cast power for PC players
+    public float pcCastPower = 8.0f;   // fixed cast power for PC players
     public float vrCastMultiplier = 2.0f;   // scales VR hand velocity
-    public float minVRCastSpeed   = 1.5f;   // minimum hand speed to register a VR cast
+    public float minVRCastSpeed = 1.5f;   // minimum hand speed to register a VR cast
 
     [Header("Bobber Bob Settings")]
-    public float bobSpeed  = 1.5f;          // oscillations per second while in water
+    public float bobSpeed = 1.5f;          // oscillations per second while in water
     public float bobAmount = 0.04f;         // meters of vertical travel while bobbing
 
     [Header("Idle Settings")]
     public float idleHangLength = 0.4f;     // how far bobber hangs below rod tip at rest
 
-    [HideInInspector] public bool    bobberInWater        = false;
+    [HideInInspector] public bool bobberInWater = false;
     [HideInInspector] public Vector3 lastCastVelocity;
     [HideInInspector] public Vector3 waterLandingPosition;
 
     Vector3 _prevTipPos;
-    bool    _initialized = false;
-    float   _bobTimer    = 0f;
-    bool    _isBobbing   = false;
+    bool _initialized = false;
+    float _bobTimer = 0f;
+    bool _isBobbing = false;
 
     void Start()
     {
@@ -43,12 +43,12 @@ public class CastManager : UdonSharpBehaviour
         // Stop bobber rolling and sliding at rest
         if (bobber != null)
         {
-            bobber.drag           = 5f;
-            bobber.angularDrag    = 10f;
+            bobber.drag = 5f;
+            bobber.angularDrag = 10f;
             bobber.freezeRotation = true;
         }
 
-        _prevTipPos  = rodTip != null ? rodTip.position : Vector3.zero;
+        _prevTipPos = rodTip != null ? rodTip.position : Vector3.zero;
         _initialized = true;
 
         if (bobberRenderer != null)
@@ -76,7 +76,7 @@ public class CastManager : UdonSharpBehaviour
         InitializeIfNeeded();
 
         Vector3 currentPos = rodTip.position;
-        Vector3 frameVel   = (currentPos - _prevTipPos) / Time.deltaTime;
+        Vector3 frameVel = (currentPos - _prevTipPos) / Time.deltaTime;
 
         if (frameVel.magnitude >= minVRCastSpeed)
             lastCastVelocity = frameVel * vrCastMultiplier;
@@ -91,11 +91,11 @@ public class CastManager : UdonSharpBehaviour
     // Shared launch logic used by both CastPC and CastVR
     void LaunchBobber()
     {
-        bobberInWater      = false;
+        bobberInWater = false;
         bobber.isKinematic = false;
-        bobber.velocity    = lastCastVelocity;
+        bobber.velocity = lastCastVelocity;
 
-        bobber.drag        = 0.1f;
+        bobber.drag = 0.1f;
         bobber.angularDrag = 0.1f;
 
 
@@ -112,10 +112,13 @@ public class CastManager : UdonSharpBehaviour
         if (!_isBobbing || bobber == null) return;
 
         _bobTimer += Time.deltaTime;
-        float bobForce = Mathf.Sin(_bobTimer * bobSpeed * Mathf.PI * 2f)
-                       * bobAmount * 10f;
+        float bob = Mathf.Sin(_bobTimer * bobSpeed * Mathf.PI * 2f) * bobAmount;
 
-        bobber.AddForce(Vector3.up * bobForce, ForceMode.Force);
+        // Direct position assignment works fine on kinematic rigidbody
+        bobber.transform.position = new Vector3(
+            waterLandingPosition.x,
+            waterLandingPosition.y + bob,
+            waterLandingPosition.z);
     }
 
     // ── Idle bobber ───────────────────────────────────────────────
@@ -137,17 +140,17 @@ public class CastManager : UdonSharpBehaviour
     // Called by BobberWaterTrigger via FishingStateMachine.OnBobberLanded
     public void OnBobberLanded()
     {
-        bobberInWater        = true;
-        bobber.isKinematic   = false;
-        bobber.velocity      = Vector3.zero;
+        bobberInWater = true;
         waterLandingPosition = bobber.transform.position;
-        _isBobbing           = true;
-        _bobTimer            = 0f;
+        _isBobbing = true;
+        _bobTimer = 0f;
 
-        // High drag simulates water resistance so bobber settles
-        // quickly and doesn't drift away after landing
-        bobber.drag        = 8f;
-        bobber.angularDrag = 5f;
+        // Freeze immediately on landing — do NOT set isKinematic = false
+        // Physics caused the bobber to bounce out of the water trigger
+        // TickBob handles movement via direct position assignment instead
+        bobber.isKinematic = true;
+        bobber.velocity = Vector3.zero;
+        bobber.angularVelocity = Vector3.zero;
 
         Debug.Log("[CastManager] Bobber landed at " + waterLandingPosition);
     }
@@ -157,9 +160,14 @@ public class CastManager : UdonSharpBehaviour
     public void SnapBobberToWater()
     {
         if (bobber == null) return;
+
         bobber.transform.position = waterLandingPosition;
-        bobber.isKinematic        = false;
-        bobber.velocity           = Vector3.zero;
+
+        // Fully freeze — kinematic means no physics forces act on it
+        // TickBob moves it via direct position assignment instead
+        bobber.isKinematic = true;
+        bobber.velocity = Vector3.zero;
+        bobber.angularVelocity = Vector3.zero;
     }
 
     // Called every frame during Reeling — moves bobber along the
@@ -205,18 +213,18 @@ public class CastManager : UdonSharpBehaviour
     {
         InitializeIfNeeded();
 
-        bobberInWater          = false;
-        _isBobbing             = false;
-        _bobTimer              = 0f;
-        bobber.isKinematic     = true;
-        bobber.velocity        = Vector3.zero;
+        bobberInWater = false;
+        _isBobbing = false;
+        _bobTimer = 0f;
+        bobber.isKinematic = true;
+        bobber.velocity = Vector3.zero;
         bobber.angularVelocity = Vector3.zero;
-        bobber.drag            = 5f;        // restore idle drag
-        bobber.angularDrag     = 10f;
-        waterLandingPosition   = Vector3.zero;
+        bobber.drag = 5f;        // restore idle drag
+        bobber.angularDrag = 10f;
+        waterLandingPosition = Vector3.zero;
 
-        if (rodTip         != null) bobber.transform.position = rodTip.position;
-        if (bobberRenderer != null) bobberRenderer.enabled    = false;
+        if (rodTip != null) bobber.transform.position = rodTip.position;
+        if (bobberRenderer != null) bobberRenderer.enabled = false;
 
         _prevTipPos = rodTip != null ? rodTip.position : Vector3.zero;
         Debug.Log("[CastManager] Reset");

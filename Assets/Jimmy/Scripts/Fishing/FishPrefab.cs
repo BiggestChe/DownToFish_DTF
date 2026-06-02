@@ -70,7 +70,7 @@ public void AttachToHook(Transform anchor)
 
 
     // Player grabs the fish off the rod
-    public override void OnPickup()
+public override void OnPickup()
     {
         if (!_isHooked) return;
 
@@ -79,19 +79,23 @@ public void AttachToHook(Transform anchor)
         // Unparent from hook so fish moves with player hand
         transform.SetParent(null);
 
-        if (_rb != null)
-        {
-            _rb.isKinematic = false;
-            _rb.useGravity  = true;
-            _rb.WakeUp();
-        }
-
+        // Take ownership immediately so the network sync handles hand movement smoothly
         Networking.SetOwner(Networking.LocalPlayer, gameObject);
 
-        Debug.Log("[FishPrefab] " + fishName + " grabbed off hook");
+        Debug.Log("[FishPrefab] " + fishName + " grabbed off hook. Hand handling physics.");
     }
 
-    public override void OnDrop() { }
+    //Restore gravity and turn off kinematic simulation ONLY when dropped!
+    public override void OnDrop() 
+    {
+        if (_rb != null)
+        {
+            _rb.isKinematic = false; // Turn off kinematic so it can drop
+            _rb.useGravity  = true;  // Re-enable gravity
+            _rb.WakeUp();            // Ensure the physics engine calculates it next frame
+        }
 
+        Debug.Log("[FishPrefab] " + fishName + " dropped. Gravity restored.");
+    }
     public float GetValue() { return fishValue; }
 }

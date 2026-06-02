@@ -209,7 +209,7 @@ public class DebugMenu : UdonSharpBehaviour
         if (stateMachine == null || stateMachine.fishingManager == null) return;
 
         stateMachine.fishingManager.fishIsBiting = true;
-        stateMachine.ForceTransitionToReeling();
+        //stateMachine.ForceTransitionToReeling();
         Debug.Log("[FishingDebug] SimulateInstantBite — forced to Reeling");
     }
 

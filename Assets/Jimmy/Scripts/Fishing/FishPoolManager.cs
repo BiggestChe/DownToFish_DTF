@@ -1,5 +1,4 @@
-﻿// FishPoolManager.cs
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.SDK3.Components;
@@ -30,6 +29,9 @@ public class FishPoolManager : UdonSharpBehaviour
         if (!Networking.IsOwner(Networking.LocalPlayer, targetPool.gameObject))
             Networking.SetOwner(Networking.LocalPlayer, targetPool.gameObject);
 
+        // Shuffles the internal array of the pool, preventing linear top-down ordering
+        targetPool.Shuffle();
+
         GameObject fish = targetPool.TryToSpawn();
 
         if (fish == null)
@@ -41,7 +43,6 @@ public class FishPoolManager : UdonSharpBehaviour
         Networking.SetOwner(Networking.LocalPlayer, fish);
 
         // Find the matching FishPrefab from our pre-assigned array
-        // instead of using GetComponent with a user-defined type
         FishPrefab fishPrefab = FindFishPrefab(fish);
 
         if (fishPrefab != null)

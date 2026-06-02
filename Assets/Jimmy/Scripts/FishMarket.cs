@@ -10,44 +10,97 @@ using TMPro;
 
 public class FishMarket : UdonSharpBehaviour
 {
-    [Header("References")]
-    public PlayerDataPool  dataPool;
-    public FishingBucket   bucket;          // the player's bucket
-    public TextMeshProUGUI lastSaleText;    // shows "Sold 3 fish for $45"
+    [Header("Managers Injection")]
+    public GameManager gameManager;
+    public PlayerDataPool dataPool;
 
-    // Called by interact button or trigger zone UI button
-    public void SellAll()
+    [Header("UI Fields Mapping")]
+    public TextMeshProUGUI walletDisplay;
+    public TextMeshProUGUI notificationText;
+
+    [Header("Shop Definitions Settings")]
+    public float[] rodUpgradeCosts = { 150f, 400f };
+    public string[] rodUpgradeNames = { "Carbon Fiber Rod", "Divine Altar Rod" };
+
+    void Start()
     {
-        if (dataPool == null || bucket == null) return;
+        UpdateBalanceUI();
+    }
 
-        PlayerData data = dataPool.GetLocalData();
-        if (data == null) return;
+    public override void OnDeserialization()
+    {
+        UpdateBalanceUI();
+    }
 
-        int   count = bucket.GetFishCount();
-        float value = bucket.GetTotalValue();
+    // Activated via your Shop World Space UI Menu Button click action
+    public void BuyNextRodUpgrade()
+    {
+        if (gameManager == null || dataPool == null) return;
 
-        if (count == 0)
+        PlayerData localData = dataPool.GetLocalData();
+        if (localData == null)
         {
-            Debug.Log("[FishMarket] Bucket is empty");
-            if (lastSaleText != null)
-                lastSaleText.text = "Bucket is empty";
+            DisplayNotice("Error: Data slot mapping missing.");
             return;
         }
 
-        // Pay the player
-        data.AddCurrency(value);
+        int nextTierIndex = localData.currentRodTier + 1;
 
-        if (lastSaleText != null)
-            lastSaleText.text = "Sold " + count
-                              + " fish for $" + value.ToString("F2");
+        if (nextTierIndex > rodUpgradeCosts.Length)
+        {
+            DisplayNotice("Maximum Rod level reached!");
+            return;
+        }
 
-        Debug.Log("[FishMarket] Sold " + count
-                + " fish for $" + value.ToString("F2")
-                + "  new balance=" + data.currency);
+        float cost = rodUpgradeCosts[nextTierIndex - 1];
+        string name = rodUpgradeNames[nextTierIndex - 1];
 
-        // Clear the bucket after selling
-        // FishingBucket needs an EmptyBucket method without return logic
-        // Add this minimal version if not already present:
-        bucket.EmptyBucket();
+        if (gameManager.divineFavor >= cost)
+        {
+            // Set network owner sequence for atomic deductions
+            if (!Networking.IsOwner(gameManager.gameObject))
+                Networking.SetOwner(Networking.LocalPlayer, gameManager.gameObject);
+
+            gameManager.divineFavor -= cost;
+
+            if (!Networking.IsOwner(localData.gameObject))
+                Networking.SetOwner(Networking.LocalPlayer, localData.gameObject);
+
+            localData.currentRodTier = nextTierIndex;
+            localData.RefreshEquippedRod();
+
+            DisplayNotice($"Purchased {name}!");
+
+            gameManager.RequestSerialization();
+            localData.RequestSerialization();
+
+            UpdateBalanceUI();
+            gameManager.UpdateDivineUI();
+        }
+        else
+        {
+            DisplayNotice($"Need ${cost.ToString("F0")} for {name}!");
+        }
+    }
+
+    public void UpdateBalanceUI()
+    {
+        if (gameManager == null || walletDisplay == null) return;
+        walletDisplay.text = $"Leftover Cash: ${gameManager.divineFavor.ToString("F2")}";
+    }
+
+    private void DisplayNotice(string message)
+    {
+        if (notificationText != null)
+        {
+            notificationText.text = message;
+            SendCustomEventDelayedSeconds(nameof(ResetNoticeText), 3.0f);
+        }
+    }
+
+    public void ResetNoticeText()
+    {
+        if (notificationText != null)
+            notificationText.text = "Welcome to the Altar Shop";
     }
 }

@@ -1,84 +1,57 @@
-﻿// PlayerData.cs
-// One instance per player — tracks currency and current rod tier.
-// Lives on a pooled GameObject, one per player slot.
-// Owned by the player it represents so only they write to it.
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
-using VRC.SDK3.Components;
 
 public class PlayerData : UdonSharpBehaviour
 {
-    [UdonSynced] public float currency    = 0f;
-    [UdonSynced] public int   rodTier     = 0;     // 0=wooden 1=basic 2=advanced
-    [UdonSynced] public int   ownerID     = -1;    // VRCPlayerApi.playerId
+    [Header("Identity Tracking")]
+    [HideInInspector] public int ownerID = -1;
 
-    // Called by RodSpawner when this slot is assigned to a player
-    public void Initialize(int playerID)
+    [Header("Progression Data")]
+    [UdonSynced] public int currentRodTier = 0; // 0 = Beginner, 1 = Carbon, 2 = Divine
+
+    [Header("Physical Registry Assets Array")]
+    // Inspector configuration elements:
+    // Element 0: Beginner Rod Object child path
+    // Element 1: Carbon Rod Object child path
+    // Element 2: Divine Rod Object child path
+    public GameObject[] personalRods;
+
+    public void Initialize(int id)
     {
-        if (!Networking.IsOwner(Networking.LocalPlayer, gameObject))
-            Networking.SetOwner(Networking.LocalPlayer, gameObject);
-
-        ownerID  = playerID;
-        currency = 0f;
-        rodTier  = 0;
-        RequestSerialization();
-
-        Debug.Log("[PlayerData] Initialized for player " + playerID);
-    }
-
-    public void AddCurrency(float amount)
-    {
-        if (!Networking.IsOwner(Networking.LocalPlayer, gameObject))
-            Networking.SetOwner(Networking.LocalPlayer, gameObject);
-
-        currency += amount;
-        RequestSerialization();
-
-        Debug.Log("[PlayerData] +" + amount + "  total=" + currency);
-    }
-
-    public bool SpendCurrency(float amount)
-    {
-        if (currency < amount)
-        {
-            Debug.Log("[PlayerData] Insufficient funds — have="
-                    + currency + "  need=" + amount);
-            return false;
-        }
-
-        if (!Networking.IsOwner(Networking.LocalPlayer, gameObject))
-            Networking.SetOwner(Networking.LocalPlayer, gameObject);
-
-        currency -= amount;
-        RequestSerialization();
-
-        Debug.Log("[PlayerData] -" + amount + "  remaining=" + currency);
-        return true;
-    }
-
-    public void SetRodTier(int tier)
-    {
-        if (!Networking.IsOwner(Networking.LocalPlayer, gameObject))
-            Networking.SetOwner(Networking.LocalPlayer, gameObject);
-
-        rodTier = tier;
-        RequestSerialization();
-
-        Debug.Log("[PlayerData] Rod tier set to " + tier);
+        ownerID = id;
+        RefreshEquippedRod();
     }
 
     public void Reset()
     {
-        ownerID  = -1;
-        currency = 0f;
-        rodTier  = 0;
-        RequestSerialization();
+        ownerID = -1;
+        currentRodTier = 0;
+        RefreshEquippedRod();
+    }
+
+    public void RefreshEquippedRod()
+    {
+        if (personalRods == null || personalRods.Length == 0) return;
+
+        for (int i = 0; i < personalRods.Length; i++)
+        {
+            if (personalRods[i] != null)
+            {
+                // Force hands to clear if upgrading actively
+                if (i == currentRodTier - 1)
+                {
+                    VRC_Pickup pickup = (VRC_Pickup)personalRods[i].GetComponent(typeof(VRC_Pickup));
+                    if (pickup != null && pickup.IsHeld) pickup.Drop();
+                }
+
+                personalRods[i].SetActive(i == currentRodTier);
+            }
+        }
     }
 
     public override void OnDeserialization()
     {
-        // Notify ShopManager to refresh UI when data changes
-        // ShopManager polls this each frame so no callback needed
+        RefreshEquippedRod();
     }
 }

@@ -51,7 +51,7 @@ public class GameManager : UdonSharpBehaviour
     }
 
     // Called when the timer hits zero
-    public void TheFeast()
+    public void BeginTheFeast()
     {
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
 
@@ -88,9 +88,9 @@ public class GameManager : UdonSharpBehaviour
         UpdateDivineUI();
     }
 
-    void UpdateDivineUI()
+    public void UpdateDivineUI()
     {
         if (hungerDisplay != null) hungerDisplay.text = $"God's Hunger: {currentOfferingValue}/{currentHungerGoal}";
-        if (coinDisplay != null) coinDisplay.text = $"Divine Favor: {divineFavor}";
+        if (coinDisplay != null) coinDisplay.text = $"Money: {divineFavor}";
     }
 }
